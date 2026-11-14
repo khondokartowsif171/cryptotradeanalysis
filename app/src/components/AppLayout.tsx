@@ -15,6 +15,7 @@ import PortfolioSummary from '@/components/PortfolioSummary';
 import Converter from '@/components/Converter';
 import StakingPanel from '@/components/StakingPanel';
 import AdminDashboard from '@/components/AdminDashboard';
+import { McpGuidePage } from '@/components/McpGuidePage';
 import Footer from '@/components/Footer';
 
 const AppLayout: React.FC = () => {
@@ -85,6 +86,12 @@ const AppLayout: React.FC = () => {
         {activeTab === 'news' && (
           <div className="space-y-8 animate-fade-in">
             <NewsFeed />
+          </div>
+        )}
+
+        {activeTab === 'mcp' && (
+          <div className="space-y-8 animate-fade-in">
+            <McpGuidePage />
           </div>
         )}
 

@@ -29,10 +29,10 @@ const HeroSection: React.FC = () => {
   const { data: tickers } = useTickerData();
 
   const globalData = globalQuery.data?.data;
-  const totalMarketCap = globalData?.total_market_cap?.usd ?? 3420000000000;
-  const totalVolume = globalData?.total_volume?.usd ?? 142000000000;
-  const btcDominance = globalData?.market_cap_percentage?.btc ?? 56.2;
-  const activeCryptos = globalData?.active_cryptocurrencies ?? 13245;
+  const totalMarketCap = globalData?.total_market_cap?.usd ?? 0;
+  const totalVolume = globalData?.total_volume?.usd ?? 0;
+  const btcDominance = globalData?.market_cap_percentage?.btc ?? 0;
+  const activeCryptos = globalData?.active_cryptocurrencies ?? 0;
 
   const formatCurrency = (value: number): string => {
     if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
@@ -86,7 +86,7 @@ const HeroSection: React.FC = () => {
               Smart crypto trading analytics by Aura Agentic AI. Real-time market data, AI signals, portfolio tracking, and on-chain staking.
             </p>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setActiveTab('markets')}
                 className="flex items-center gap-2 bg-gradient-to-r from-[#F0B90B] to-[#F8D12F] text-black px-6 py-3 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
@@ -99,6 +99,13 @@ const HeroSection: React.FC = () => {
               >
                 <Signal className="w-4 h-4" />
                 View Signals
+              </button>
+              <button
+                onClick={() => setActiveTab('mcp')}
+                className="flex items-center gap-2 bg-[#F0B90B]/10 border border-[#F0B90B]/30 text-[#F0B90B] px-5 py-3 rounded-xl text-sm font-medium hover:bg-[#F0B90B]/20 transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                MCP &amp; AI Agents
               </button>
             </div>
           </div>

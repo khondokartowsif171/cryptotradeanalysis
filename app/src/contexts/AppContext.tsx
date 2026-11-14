@@ -48,7 +48,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [watchlist, setWatchlistState] = useState<string[]>(['btc', 'eth', 'sol', 'bnb', 'xrp']);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCoin, setActiveCoin] = useState('btc');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname.toLowerCase();
+      if (window.location.hash === '#mcp' || p === '/mcp-guide' || p === '/mcp') {
+        return 'mcp';
+      }
+    }
+    return 'overview';
+  });
   const [sortField, setSortFieldState] = useState('rank');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [chartTimeframe, setChartTimeframe] = useState('1D');

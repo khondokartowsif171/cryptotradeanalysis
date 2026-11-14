@@ -27,26 +27,24 @@ const CoinSidebar: React.FC = () => {
   const { data: klines } = useKlineData(`${symbol}USDT`, '1D');
   const metadata = getCoinMetadata(activeCoin, symbol);
 
-  const ath = useMemo(() => {
-    if (!klines) return price * 1.35;
-    return Math.max(...klines.map((k) => k.high));
-  }, [klines, price]);
-
-  const atl = useMemo(() => {
-    if (!klines) return price * 0.12;
-    return Math.min(...klines.map((k) => k.low));
-  }, [klines, price]);
+  const klineRange = useMemo(() => {
+    if (!klines || !klines.length) return { high: null as number | null, low: null as number | null };
+    return {
+      high: Math.max(...klines.map((k) => k.high)),
+      low: Math.min(...klines.map((k) => k.low)),
+    };
+  }, [klines]);
 
   const marketCap = price * volume;
   const isWatched = watchlist.includes(activeCoin);
 
   const stats = [
-    { label: 'Market Cap', value: formatPrice(marketCap) },
+    { label: '24h Turnover', value: formatPrice(marketCap) },
     { label: '24h Volume', value: formatPrice(quoteVolume) },
     { label: '24h High', value: formatPrice(high) },
     { label: '24h Low', value: formatPrice(low) },
-    { label: 'All-Time High', value: formatPrice(ath) },
-    { label: 'All-Time Low', value: formatPrice(atl) },
+    { label: '90d High', value: klineRange.high !== null ? formatPrice(klineRange.high) : '—' },
+    { label: '90d Low', value: klineRange.low !== null ? formatPrice(klineRange.low) : '—' },
   ];
 
   const handleCopyAddress = async () => {
@@ -95,7 +93,7 @@ const CoinSidebar: React.FC = () => {
           <h3 className="text-lg font-bold flex items-center gap-2">
             {metadata.name}
             <span className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground font-mono">
-              #{stats.findIndex(s => s.label === 'Market Cap') + 1 || symbol}
+              {symbol}/USDT
             </span>
           </h3>
           <p className="text-xs text-muted-foreground font-mono">{symbol}/USDT • {metadata.network}</p>

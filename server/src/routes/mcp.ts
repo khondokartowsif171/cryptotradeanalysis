@@ -25,23 +25,31 @@ router.get('/info', async (req: Request, res: Response) => {
       messagesEndpoint: 'https://cryptox-api.auraajenticai.cloud/mcp/messages',
     },
     clientConfigurations: {
+      antigravity: {
+        mcpServers: {
+          'aura-cryptox-mcp': {
+            serverUrl: 'https://crypto.auraajenticai.cloud/mcp',
+          },
+        },
+      },
       claudeDesktop: {
         mcpServers: {
           'aura-cryptox': {
-            url: 'https://cryptox-api.auraajenticai.cloud/mcp',
+            command: 'npx',
+            args: ['-y', 'mcp-remote', 'https://crypto.auraajenticai.cloud/mcp'],
           },
         },
       },
       cursorAndWindsurf: {
         mcpServers: {
           'aura-cryptox': {
-            url: 'https://cryptox-api.auraajenticai.cloud/mcp',
+            url: 'https://crypto.auraajenticai.cloud/mcp',
           },
         },
       },
       n8nAutomation: {
         node: 'MCP Tool / HTTP Stream',
-        url: 'https://cryptox-api.auraajenticai.cloud/mcp',
+        url: 'https://crypto.auraajenticai.cloud/mcp',
       },
     },
     tools: [

@@ -11,6 +11,7 @@ const router = Router();
 const endpoint = 'https://crypto.auraajenticai.cloud/mcp';
 const allowedOrigins = new Set([
   'https://crypto.auraajenticai.cloud', 'https://cryptox-api.auraajenticai.cloud',
+  'https://cryptox.auraajenticai.cloud', 'https://cryptotradeanalysis.vercel.app',
   'https://chatgpt.com', 'https://chat.openai.com',
 ]);
 
@@ -51,9 +52,64 @@ router.use((req, res, next) => {
   next();
 });
 
+const universalAgentConfigs = {
+  antigravity: {
+    mcpServers: {
+      'aura-cryptox-mcp': {
+        serverUrl: endpoint,
+      },
+    },
+  },
+  claudeCode: `claude mcp add --transport http aura-cryptox ${endpoint}`,
+  claudeDesktop: {
+    mcpServers: {
+      'aura-cryptox': {
+        command: 'npx',
+        args: ['-y', 'mcp-remote', endpoint],
+      },
+    },
+  },
+  cursor: {
+    mcpServers: {
+      'aura-cryptox': {
+        url: endpoint,
+      },
+    },
+  },
+  windsurf: {
+    mcpServers: {
+      'aura-cryptox': {
+        serverUrl: endpoint,
+      },
+    },
+  },
+  geminiCli: {
+    mcpServers: {
+      'aura-cryptox': {
+        httpUrl: endpoint,
+      },
+    },
+  },
+  cline: {
+    mcpServers: {
+      'aura-cryptox': {
+        url: endpoint,
+        type: 'streamableHttp',
+      },
+    },
+  },
+  openAiActions: {
+    openApiSpecUrl: `${endpoint}/openapi.json`,
+    serverUrl: endpoint,
+    authScheme: 'Optional Bearer <crx_live_api_key>',
+  },
+  pluginManifestUrl: `${endpoint}/plugin.json`,
+};
+
 router.get('/info', (_req, res) => {
   res.json({
     name: 'Aura CryptoX', version: '1.3.0', endpoint,
+    protocol: '2025-03-26',
     transport: 'Streamable HTTP',
     authentication: 'none (public read-only) or optional Bearer <crx_live_api_key | jwt> (Pro/VIP multi-asset quant feed & synced portfolio)',
     capabilities: [
@@ -71,6 +127,100 @@ router.get('/info', (_req, res) => {
     liveTrading: false,
     setup: { name: 'Aura CryptoX', serverUrl: endpoint, authentication: 'Optional Bearer API Key' },
     testPrompt: 'Use Aura CryptoX to analyze BTC with closed-candle multi-timeframe quant signals and simulate a $100 BUY at 2x leverage.',
+    discovery: {
+      infoUrl: `${endpoint}/info`,
+      openApiUrl: `${endpoint}/openapi.json`,
+      pluginManifestUrl: `${endpoint}/plugin.json`,
+      repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis-public',
+    },
+    agentConfigs: universalAgentConfigs,
+  });
+});
+
+router.get('/openapi.json', (_req, res) => {
+  res.json({
+    openapi: '3.1.0',
+    info: {
+      title: 'Aura CryptoX Universal MCP & Agent API',
+      version: '1.3.0',
+      description: 'Institutional closed-candle crypto quant signals, live Binance prices, EVM portfolio intelligence, and Streamable HTTP MCP gateway.',
+    },
+    servers: [
+      { url: 'https://crypto.auraajenticai.cloud', description: 'Canonical Production Origin' },
+      { url: 'https://cryptox-api.auraajenticai.cloud', description: 'Direct Origin API' },
+    ],
+    paths: {
+      '/mcp': {
+        post: {
+          operationId: 'invokeMcpJsonRpc',
+          summary: 'Invoke Aura CryptoX Streamable HTTP MCP (JSON-RPC 2.0)',
+          description: 'Send JSON-RPC 2.0 requests (initialize, tools/list, tools/call). Optional Bearer crx_live_... unlocks Pro/VIP tools.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['jsonrpc', 'method'],
+                  properties: {
+                    jsonrpc: { type: 'string', enum: ['2.0'] },
+                    id: { type: ['integer', 'string'] },
+                    method: { type: 'string', example: 'tools/list' },
+                    params: { type: 'object', additionalProperties: true },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'JSON-RPC 2.0 result payload' },
+            '401': { description: 'Invalid Bearer token' },
+          },
+        },
+      },
+      '/mcp/info': {
+        get: {
+          operationId: 'getMcpCapabilities',
+          summary: 'Discover MCP endpoint metadata and multi-agent installation configs',
+          responses: { '200': { description: 'MCP discovery metadata' } },
+        },
+      },
+      '/mcp/plugin.json': {
+        get: {
+          operationId: 'getUniversalPluginManifest',
+          summary: 'Retrieve universal agent plugin manifest',
+          responses: { '200': { description: 'Plugin manifest JSON' } },
+        },
+      },
+      '/api/platform-summary': {
+        get: {
+          operationId: 'getPlatformSummary',
+          summary: 'Retrieve real-time live database counts for users, quant signals, news, and alerts',
+          responses: { '200': { description: 'Platform metrics JSON' } },
+        },
+      },
+    },
+  });
+});
+
+router.get('/plugin.json', (_req, res) => {
+  res.json({
+    schemaVersion: '1.0',
+    name: 'aura-cryptox',
+    displayName: 'Aura CryptoX — Institutional Quant & Web3',
+    version: '1.3.0',
+    description: 'Institutional cryptocurrency quantitative analytics, closed-candle multi-timeframe trading signals (EMA, RSI, MACD, ATR, Futures Funding/OI), EVM on-chain portfolio valuation, and paper trade risk simulation.',
+    author: { name: 'Khondokar Towsif (Aura Agentic AI)', url: 'https://crypto.auraajenticai.cloud' },
+    homepage: 'https://crypto.auraajenticai.cloud',
+    repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis-public',
+    mcp: {
+      transport: 'streamable-http',
+      protocolVersion: '2025-03-26',
+      serverUrl: endpoint,
+      authentication: 'optional-bearer',
+    },
+    openApiSpec: `${endpoint}/openapi.json`,
+    agentConfigs: universalAgentConfigs,
   });
 });
 

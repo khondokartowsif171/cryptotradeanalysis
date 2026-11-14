@@ -4,7 +4,7 @@ import { useTickerData } from '@/hooks/useCryptoData';
 import { formatPrice, CRYPTO_COLORS } from '@/types/crypto';
 import {
   Search, X, Star, BarChart3, Newspaper, Activity, TrendingUp,
-  Sun, Moon, Menu, Loader2, Wallet, LogOut, User, Zap, Crown, Shield,
+  Sun, Moon, Menu, Loader2, Wallet, LogOut, User, Zap, Crown, Shield, Cpu,
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { useContract } from '@/hooks/useContract';
@@ -62,6 +62,7 @@ const Header: React.FC = () => {
     { id: 'signals', label: 'Signals', icon: Activity },
     { id: 'watchlist', label: 'Watchlist', icon: Star },
     { id: 'news', label: 'News', icon: Newspaper },
+    { id: 'mcp', label: 'MCP & Agents', icon: Cpu },
     ...(user?.is_admin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
   ];
 

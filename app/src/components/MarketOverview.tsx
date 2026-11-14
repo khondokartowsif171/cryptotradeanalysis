@@ -31,8 +31,8 @@ const MarketOverview: React.FC = () => {
     return value.toLocaleString();
   };
 
-  const fgValue = fearGreed?.value ?? 74;
-  const fgLabel = fearGreed?.value_classification ?? 'Greed';
+  const fgValue = typeof fearGreed?.value === 'number' ? fearGreed.value : null;
+  const fgLabel = fearGreed?.value_classification ?? null;
 
   const getGaugeColor = (value: number): string => {
     if (value < 25) return '#ef4444';
@@ -73,9 +73,9 @@ const MarketOverview: React.FC = () => {
       },
       {
         label: 'Fear & Greed',
-        value: fgValue.toString(),
-        change: fgLabel,
-        positive: fgValue > 50,
+        value: fgValue !== null ? fgValue.toString() : '—',
+        change: fgLabel ?? 'Fetching live index',
+        positive: fgValue !== null ? fgValue > 50 : true,
         icon: Gauge,
         gradient: 'from-purple-500/20 to-pink-500/20',
         iconColor: 'text-purple-400',
@@ -149,16 +149,16 @@ const MarketOverview: React.FC = () => {
           <span className="text-sm font-medium">Fear & Greed Index</span>
           <span
             className="text-sm font-mono font-bold"
-            style={{ color: getGaugeColor(fgValue) }}
+            style={{ color: getGaugeColor(fgValue ?? 50) }}
           >
-            {fgValue} - {fgLabel}
+            {fgValue !== null ? `${fgValue} - ${fgLabel ?? ''}` : 'Loading live index...'}
           </span>
         </div>
         <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
           <div className="h-full rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-emerald-500 relative">
             <div
               className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-2 border-background shadow-lg transition-all duration-500"
-              style={{ left: `${fgValue}%`, transform: 'translate(-50%, -50%)' }}
+              style={{ left: `${fgValue ?? 50}%`, transform: 'translate(-50%, -50%)' }}
             />
           </div>
         </div>

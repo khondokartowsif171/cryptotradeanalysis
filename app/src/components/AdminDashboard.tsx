@@ -130,6 +130,13 @@ const AdminDashboard: React.FC = () => {
     { label: 'Candle Proxy', ok: Boolean(stats.health.candleProxy?.ok), icon: Activity },
     { label: 'Price Proxy', ok: Boolean(stats.health.priceProxy?.ok), icon: Radio },
     { label: 'VPS Signal Bot', ok: Boolean(stats.health.signalBot?.ok), icon: Zap },
+    {
+      label: stats.health.binanceApi?.freeUsdt != null
+        ? `Binance API ($${stats.health.binanceApi.freeUsdt.toFixed(2)})`
+        : 'Binance Spot API',
+      ok: Boolean(stats.health.binanceApi?.ok),
+      icon: Shield,
+    },
   ] : [];
 
   return (

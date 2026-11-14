@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CONTRACTS } from '@/data/contracts';
 import { useContract, type PlatformStats } from '@/hooks/useContract';
+import { api } from '@/services/api';
 import { Coins, Lock, Unlock, Gift, TrendingUp, Users, Signal, Database, ExternalLink, Copy, Wallet, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -8,6 +9,7 @@ const StakingPanel: React.FC = () => {
   const [stakeAmount, setStakeAmount] = useState('');
   const [activeStakeTab, setActiveStakeTab] = useState<'stake' | 'unstake'>('stake');
   const [platformStats, setPlatformStats] = useState<PlatformStats | null>(null);
+  const [dbSummary, setDbSummary] = useState<{ users: number; signals: number; news: number } | null>(null);
 
   const {
     account,
@@ -20,6 +22,9 @@ const StakingPanel: React.FC = () => {
 
   useEffect(() => {
     getPlatformStats().then(setPlatformStats);
+    void api.platformSummary().then((res) => {
+      if (!res._offline) setDbSummary(res.data);
+    }).catch(() => {});
     const interval = setInterval(() => {
       getPlatformStats().then(setPlatformStats);
     }, 15000);
@@ -51,25 +56,25 @@ const StakingPanel: React.FC = () => {
   const stats = [
     {
       label: 'Total Staked',
-      value: platformStats ? `${parseFloat(platformStats.totalStaked).toFixed(1)}M CRX` : '24.5M CRX',
+      value: platformStats ? `${parseFloat(platformStats.totalStaked).toFixed(1)} CRX` : '—',
       icon: Lock,
       color: 'text-purple-400',
     },
     {
       label: 'Total Signals',
-      value: platformStats ? platformStats.totalSignals.toLocaleString() : '12,847',
+      value: platformStats ? platformStats.totalSignals.toLocaleString() : (dbSummary ? dbSummary.signals.toLocaleString() : '—'),
       icon: Signal,
       color: 'text-blue-400',
     },
     {
       label: 'Platform Users',
-      value: platformStats ? platformStats.totalUsers.toLocaleString() : '89,234',
+      value: platformStats ? platformStats.totalUsers.toLocaleString() : (dbSummary ? dbSummary.users.toLocaleString() : '—'),
       icon: Users,
       color: 'text-emerald-400',
     },
     {
-      label: 'APY',
-      value: '12.8%',
+      label: 'Reward Rate',
+      value: platformStats ? 'On-Chain Live' : 'Web3 Live',
       icon: TrendingUp,
       color: 'text-amber-400',
     },
@@ -182,8 +187,8 @@ const StakingPanel: React.FC = () => {
 
         <div className="space-y-2 mb-4 text-xs">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Estimated APY</span>
-            <span className="font-mono text-emerald-400">12.8%</span>
+            <span className="text-muted-foreground">Reward Mode</span>
+            <span className="font-mono text-emerald-400">On-Chain Dynamic</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Lock Period</span>

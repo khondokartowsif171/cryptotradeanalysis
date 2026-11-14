@@ -185,7 +185,7 @@ export function tickerToAsset(ticker: BinanceTicker, rank: number) {
     change24h: parseFloat(ticker.priceChangePercent),
     change7d: 0,
     volume24h: volume,
-    marketCap: price * parseFloat(ticker.volume) * price,
+    marketCap: price * parseFloat(ticker.volume),
     sparkline: [],
     color: '#6366f1',
     icon: symbol,

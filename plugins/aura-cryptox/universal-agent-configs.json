@@ -1,0 +1,85 @@
+{
+  "name": "aura-cryptox",
+  "version": "1.3.0",
+  "canonicalMcpUrl": "https://crypto.auraajenticai.cloud/mcp",
+  "infoUrl": "https://crypto.auraajenticai.cloud/mcp/info",
+  "openApiUrl": "https://crypto.auraajenticai.cloud/mcp/openapi.json",
+  "pluginManifestUrl": "https://crypto.auraajenticai.cloud/mcp/plugin.json",
+  "authentication": {
+    "publicTier": "No header required (8 read-only market, wallet & simulation tools)",
+    "proVipTier": "Authorization: Bearer crx_live_... (generated in Dashboard -> API Keys)"
+  },
+  "clients": {
+    "antigravity": {
+      "configPath": "~/.gemini/antigravity/mcp_config.json",
+      "config": {
+        "mcpServers": {
+          "aura-cryptox-mcp": {
+            "serverUrl": "https://crypto.auraajenticai.cloud/mcp"
+          }
+        }
+      }
+    },
+    "claudeCode": {
+      "command": "claude mcp add --transport http aura-cryptox https://crypto.auraajenticai.cloud/mcp",
+      "withVipBearer": "claude mcp add --transport http --header \"Authorization: Bearer YOUR_CRX_LIVE_KEY\" aura-cryptox https://crypto.auraajenticai.cloud/mcp"
+    },
+    "claudeDesktop": {
+      "config": {
+        "mcpServers": {
+          "aura-cryptox": {
+            "command": "npx",
+            "args": [
+              "-y",
+              "mcp-remote",
+              "https://crypto.auraajenticai.cloud/mcp"
+            ]
+          }
+        }
+      }
+    },
+    "cursor": {
+      "configPath": "~/.cursor/mcp.json",
+      "config": {
+        "mcpServers": {
+          "aura-cryptox": {
+            "url": "https://crypto.auraajenticai.cloud/mcp"
+          }
+        }
+      }
+    },
+    "windsurf": {
+      "configPath": "~/.codeium/windsurf/mcp_config.json",
+      "config": {
+        "mcpServers": {
+          "aura-cryptox": {
+            "serverUrl": "https://crypto.auraajenticai.cloud/mcp"
+          }
+        }
+      }
+    },
+    "geminiCli": {
+      "configPath": "~/.gemini/settings.json",
+      "config": {
+        "mcpServers": {
+          "aura-cryptox": {
+            "httpUrl": "https://crypto.auraajenticai.cloud/mcp"
+          }
+        }
+      }
+    },
+    "cline": {
+      "config": {
+        "mcpServers": {
+          "aura-cryptox": {
+            "url": "https://crypto.auraajenticai.cloud/mcp",
+            "type": "streamableHttp"
+          }
+        }
+      }
+    },
+    "openaiCustomGpt": {
+      "importSchemaUrl": "https://crypto.auraajenticai.cloud/mcp/openapi.json"
+    }
+  }
+}

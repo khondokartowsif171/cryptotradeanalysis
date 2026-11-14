@@ -5,9 +5,43 @@ import { getMongo, pingMongo } from '../db/mongo.js';
 import { database } from '../billing/database.js';
 import { loadClientUser } from '../billing/store.js';
 import { isAdminPrincipal } from '../middleware/entitlements.js';
-import { syncAllQuantSignalsToMongo } from '../quant/signalEngine.js';
+import { checkBinanceApiHealth, syncAllQuantSignalsToMongo } from '../quant/signalEngine.js';
 
 const router = Router();
+
+export async function fetchPlatformSummary() {
+  const [userCount, activePaidCount, subscriberCount, mongoPing] = await Promise.all([
+    query('SELECT COUNT(*) as count FROM users'),
+    query('SELECT COUNT(DISTINCT user_id) as count FROM subscription_grants WHERE starts_at <= NOW() AND ends_at > NOW()'),
+    query('SELECT COUNT(*) as count FROM subscribers'),
+    pingMongo(),
+  ]);
+
+  let signals = 0;
+  let news = 0;
+  let alerts = 0;
+  if (mongoPing.connected) {
+    try {
+      const db = await getMongo();
+      [signals, news, alerts] = await Promise.all([
+        db.collection('signals').countDocuments(),
+        db.collection('news').countDocuments(),
+        db.collection('alerts').countDocuments(),
+      ]);
+    } catch {}
+  }
+
+  return {
+    users: parseInt(userCount.rows[0]?.count || '0', 10),
+    activePaidUsers: parseInt(activePaidCount.rows[0]?.count || '0', 10),
+    subscribers: parseInt(subscriberCount.rows[0]?.count || '0', 10),
+    signals,
+    news,
+    alerts,
+    mongoConnected: mongoPing.connected,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 async function checkService(url: string): Promise<{ ok: boolean; status?: number }> {
   try {
@@ -33,6 +67,7 @@ router.get('/stats', async (_req, res) => {
       candleProxy,
       priceProxy,
       signalBot,
+      binanceApi,
     ] = await Promise.all([
       query('SELECT COUNT(*) as count FROM users'),
       query('SELECT COUNT(*) as count FROM watchlists'),
@@ -46,6 +81,7 @@ router.get('/stats', async (_req, res) => {
       checkService(process.env.CANDLE_PROXY_HEALTH_URL || 'http://candles.auraajenticai.cloud/health'),
       checkService(process.env.PRICE_PROXY_HEALTH_URL || 'http://prices.auraajenticai.cloud/health'),
       checkService(process.env.SIGNAL_BOT_HEALTH_URL || 'https://signals.tradingbangla.com/health'),
+      checkBinanceApiHealth(),
     ]);
 
     let mongoStats = { news: 0, signals: 0, alerts: 0 };
@@ -74,10 +110,29 @@ router.get('/stats', async (_req, res) => {
         candleProxy,
         priceProxy,
         signalBot,
+        binanceApi: {
+          ok: binanceApi.ok,
+          keyConfigured: binanceApi.keyConfigured,
+          authenticatedAccount: binanceApi.authenticatedAccount,
+          accountType: binanceApi.accountType,
+          canTrade: binanceApi.canTrade,
+          freeUsdt: binanceApi.freeUsdt,
+          activeAssetCount: binanceApi.activeBalances?.length ?? 0,
+          message: binanceApi.message,
+        },
       },
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/binance-account', async (_req, res) => {
+  try {
+    const account = await checkBinanceApiHealth();
+    res.json({ ...account, checkedAt: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || 'Failed to inspect Binance account' });
   }
 });
 

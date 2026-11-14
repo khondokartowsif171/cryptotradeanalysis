@@ -47,11 +47,28 @@ export interface AdminUserRow {
   portfolio_count: number; api_keys_count: number; confirmed_payments: number; is_admin: boolean;
 }
 export interface AdminHealthStatus { ok: boolean; error?: string; status?: number }
+export interface BinanceApiHealthStatus {
+  ok: boolean;
+  keyConfigured: boolean;
+  authenticatedAccount: boolean;
+  accountType?: string;
+  canTrade?: boolean;
+  freeUsdt?: number;
+  activeAssetCount?: number;
+  message?: string;
+}
 export interface AdminStatsResponse {
   users: number; activePaidUsers: number; watchlists: number; portfolios: number;
   subscribers: number; pendingIntents: number; confirmedIntents: number; autonomousTrades: number;
   mongo: { news: number; signals: number; alerts: number };
-  health: { postgres: AdminHealthStatus; mongo: AdminHealthStatus; candleProxy: AdminHealthStatus; priceProxy: AdminHealthStatus; signalBot: AdminHealthStatus };
+  health: {
+    postgres: AdminHealthStatus;
+    mongo: AdminHealthStatus;
+    candleProxy: AdminHealthStatus;
+    priceProxy: AdminHealthStatus;
+    signalBot: AdminHealthStatus;
+    binanceApi?: BinanceApiHealthStatus;
+  };
 }
 export interface AdminIntentsResponse {
   intents: (PaymentIntent & { user_email?: string; email?: string; user_wallet?: string })[];
@@ -197,8 +214,22 @@ export const api = {
     get: () => request<{ signals: PremiumSignal[]; source?: string }>('/signals'),
   },
 
+  platformSummary: () =>
+    request<{
+      users: number;
+      activePaidUsers: number;
+      subscribers: number;
+      signals: number;
+      news: number;
+      alerts: number;
+      mongoConnected: boolean;
+      timestamp: string;
+    }>('/platform-summary'),
+
   admin: {
     stats: () => request<AdminStatsResponse>('/admin/stats'),
+    binanceAccount: () =>
+      request<BinanceApiHealthStatus & { activeBalances?: Array<{ asset: string; free: string; locked: string }>; checkedAt: string }>('/admin/binance-account'),
     users: () => request<{ users: AdminUserRow[] }>('/admin/users'),
     intents: () => request<AdminIntentsResponse>('/admin/intents'),
     grantTier: (userId: string, tier: 'free' | 'pro' | 'vip', durationDays = 3650) =>

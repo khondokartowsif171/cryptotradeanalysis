@@ -8,7 +8,7 @@ import portfolioRoutes from './routes/portfolio.js';
 import subscribeRoutes from './routes/subscribe.js';
 import newsRoutes from './routes/news.js';
 import signalsRoutes from './routes/signals.js';
-import adminRoutes from './routes/admin.js';
+import adminRoutes, { fetchPlatformSummary } from './routes/admin.js';
 import mcpRoutes from './routes/mcp.js';
 import connectorRoutes, { canonicalConnector } from './routes/connector.js';
 import { ensureBillingSchema } from './billing/database.js';
@@ -20,13 +20,22 @@ import { syncAllQuantSignalsToMongo } from './quant/signalEngine.js';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-const webOrigins = new Set(['https://crypto.auraajenticai.cloud','https://cryptox.auraajenticai.cloud','https://chatgpt.com','https://chat.openai.com',...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean)]);
+const webOrigins = new Set(['https://crypto.auraajenticai.cloud','https://cryptox.auraajenticai.cloud','https://cryptotradeanalysis.vercel.app','https://chatgpt.com','https://chat.openai.com',...(process.env.CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean)]);
 app.use(cors({ origin: (origin,callback) => callback(null,!origin || webOrigins.has(origin)),credentials: false }));
 app.use(express.json({ limit: '1mb' }));
 app.use(canonicalConnector);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get(['/platform-summary', '/api/platform-summary'], async (_req, res) => {
+  try {
+    const summary = await fetchPlatformSummary();
+    res.json(summary);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Platform summary unavailable' });
+  }
 });
 
 app.get('/debug/db', authMiddleware, requireAdmin, async (_req, res) => {

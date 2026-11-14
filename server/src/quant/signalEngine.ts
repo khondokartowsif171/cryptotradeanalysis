@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { getMongo } from '../db/mongo.js';
 
 export interface ClosedCandle {
@@ -363,9 +364,16 @@ export function evaluateClosedCandles(candles: ClosedCandle[], timeframe: 'M15' 
   };
 }
 
+function binanceHeaders(): Record<string, string> | undefined {
+  const apiKey = process.env.BINANCE_API_KEY?.trim();
+  return apiKey ? { 'X-MBX-APIKEY': apiKey } : undefined;
+}
+
 async function fetchBinanceSpotKlines(pair: string, interval: '15m' | '1h' | '4h', limit = 250): Promise<ClosedCandle[]> {
-  const url = `https://data-api.binance.vision/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+  const headers = binanceHeaders();
+  const baseUrl = headers ? 'https://api.binance.com' : 'https://data-api.binance.vision';
+  const url = `${baseUrl}/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(3500) });
   if (!res.ok) throw new Error(`Binance klines HTTP ${res.status}`);
   const raw = (await res.json()) as any[];
   if (!Array.isArray(raw) || raw.length < 30) throw new Error(`Insufficient klines for ${pair}`);
@@ -381,10 +389,11 @@ async function fetchBinanceSpotKlines(pair: string, interval: '15m' | '1h' | '4h
 }
 
 async function fetchFuturesDerivatives(pair: string): Promise<DerivativesMetrics> {
+  const headers = binanceHeaders();
   try {
     const [premRes, oiRes] = await Promise.all([
-      fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${encodeURIComponent(pair)}`, { signal: AbortSignal.timeout(2500) }),
-      fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${encodeURIComponent(pair)}`, { signal: AbortSignal.timeout(2500) }),
+      fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${encodeURIComponent(pair)}`, { headers, signal: AbortSignal.timeout(2500) }),
+      fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${encodeURIComponent(pair)}`, { headers, signal: AbortSignal.timeout(2500) }),
     ]);
     const prem = premRes.ok ? ((await premRes.json()) as any) : null;
     const oi = oiRes.ok ? ((await oiRes.json()) as any) : null;
@@ -651,5 +660,91 @@ export async function syncAllQuantSignalsToMongo(): Promise<{ signalsSynced: num
     return await inFlightSync;
   } finally {
     inFlightSync = null;
+  }
+}
+
+export interface BinanceApiHealthStatus {
+  ok: boolean;
+  keyConfigured: boolean;
+  authenticatedAccount: boolean;
+  accountType?: string;
+  canTrade?: boolean;
+  freeUsdt?: number;
+  activeBalances?: Array<{ asset: string; free: string; locked: string }>;
+  message?: string;
+}
+
+export async function checkBinanceApiHealth(): Promise<BinanceApiHealthStatus> {
+  const apiKey = process.env.BINANCE_API_KEY?.trim();
+  const apiSecret = process.env.BINANCE_API_SECRET?.trim();
+  if (!apiKey) {
+    return {
+      ok: false,
+      keyConfigured: false,
+      authenticatedAccount: false,
+      message: 'BINANCE_API_KEY not configured',
+    };
+  }
+  if (!apiSecret) {
+    try {
+      const ping = await fetch('https://api.binance.com/api/v3/time', {
+        headers: { 'X-MBX-APIKEY': apiKey },
+        signal: AbortSignal.timeout(2500),
+      });
+      return {
+        ok: ping.ok,
+        keyConfigured: true,
+        authenticatedAccount: false,
+        message: ping.ok ? 'Public market key active (API secret not set)' : `Binance HTTP ${ping.status}`,
+      };
+    } catch (err: any) {
+      return {
+        ok: false,
+        keyConfigured: true,
+        authenticatedAccount: false,
+        message: err?.message || 'Binance unreachable',
+      };
+    }
+  }
+
+  try {
+    const timeRes = await fetch('https://api.binance.com/api/v3/time', { signal: AbortSignal.timeout(2000) });
+    const serverTime = timeRes.ok ? Number(((await timeRes.json()) as any)?.serverTime) : Date.now();
+    const qs = `timestamp=${Number.isFinite(serverTime) ? serverTime : Date.now()}&recvWindow=10000`;
+    const signature = crypto.createHmac('sha256', apiSecret).update(qs).digest('hex');
+    const res = await fetch(`https://api.binance.com/api/v3/account?${qs}&signature=${signature}`, {
+      headers: { 'X-MBX-APIKEY': apiKey },
+      signal: AbortSignal.timeout(3000),
+    });
+    const data = (await res.json()) as any;
+    if (!res.ok) {
+      return {
+        ok: false,
+        keyConfigured: true,
+        authenticatedAccount: false,
+        message: data?.msg ? `Binance (${data.code || res.status}): ${data.msg}` : `Binance HTTP ${res.status}`,
+      };
+    }
+    const activeBalances = Array.isArray(data.balances)
+      ? data.balances.filter((b: any) => parseFloat(b.free) > 0 || parseFloat(b.locked) > 0)
+      : [];
+    const usdt = activeBalances.find((b: any) => b.asset === 'USDT');
+    return {
+      ok: true,
+      keyConfigured: true,
+      authenticatedAccount: true,
+      accountType: data.accountType,
+      canTrade: Boolean(data.canTrade),
+      freeUsdt: usdt ? parseFloat(usdt.free) : 0,
+      activeBalances,
+      message: `Connected (${data.accountType || 'SPOT'}, canTrade=${Boolean(data.canTrade)})`,
+    };
+  } catch (err: any) {
+    return {
+      ok: false,
+      keyConfigured: true,
+      authenticatedAccount: false,
+      message: err?.message || 'Binance signed check failed',
+    };
   }
 }
