@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "aura-cryptox-mcp": {
+      "serverUrl": "https://crypto.auraajenticai.cloud/mcp"
+    }
+  }
+}

@@ -11,6 +11,11 @@ import { database } from '../billing/database.js';
 import { loadClientUser } from '../billing/store.js';
 import { billingFailure } from '../billing/router.js';
 import { rateLimit } from '../middleware/rateLimit.js';
+import { isAdminPrincipal } from '../middleware/entitlements.js';
+
+function withAdminFlag(user: any) {
+  return user ? { ...user, is_admin: isAdminPrincipal(user) } : null;
+}
 
 const router = Router();
 router.use((_req,res,next) => { res.setHeader('Cache-Control','no-store'); next(); });
@@ -55,14 +60,14 @@ router.post('/wallet/verify', walletLimit, async (req,res) => {
   try {
     const { address,signature,nonce } = req.body;
     const user = await walletAuth.verify(address,signature,nonce);
-    res.json({ user,token: generateToken({ userId: user!.id,email: user!.email,wallet: user!.wallet_address || undefined }) });
+    res.json({ user: withAdminFlag(user),token: generateToken({ userId: user!.id,email: user!.email,wallet: user!.wallet_address || undefined }) });
   } catch (error) { billingFailure(error,res); }
 });
 router.post('/wallet/link', authMiddleware, walletLimit, async (req,res) => {
   try {
     const { address,signature,nonce } = req.body;
     const user = await walletAuth.verify(address,signature,nonce,'link',req.user!.userId);
-    res.json({ user,token: generateToken({ userId: user!.id,email: user!.email,wallet: user!.wallet_address || undefined }) });
+    res.json({ user: withAdminFlag(user),token: generateToken({ userId: user!.id,email: user!.email,wallet: user!.wallet_address || undefined }) });
   } catch (error) { billingFailure(error,res); }
 });
 
@@ -81,7 +86,7 @@ router.post('/register', async (req, res) => {
     );
     const user = await loadClientUser(database.query,result.rows[0].id);
     const token = generateToken({ userId: user.id, email: user.email });
-    res.status(201).json({ user, token });
+    res.status(201).json({ user: withAdminFlag(user), token });
   } catch (err: any) {
     if (err instanceof z.ZodError) {
       res.status(400).json({ error: err.issues[0].message });
@@ -116,13 +121,13 @@ router.post('/login', rateLimit(10,60_000,req => String(req.body?.email || req.i
     const user = await loadClientUser(database.query,account.id);
     const token = generateToken({ userId: user.id, email: user.email });
     res.json({
-      user: {
+      user: withAdminFlag({
         id: user.id,
         email: user.email,
         wallet_address: user.wallet_address,
         tier: user.tier || 'free',
         tier_expires_at: user.tier_expires_at
-      },
+      }),
       token
     });
   } catch (err: any) {
@@ -231,7 +236,7 @@ router.post('/reset-password', recoveryLimit, async (req, res) => {
     res.json({
       success: true,
       message: 'Password successfully updated! You are now logged in.',
-      user,
+      user: withAdminFlag(user),
       token,
     });
   } catch (err: any) {
@@ -256,7 +261,7 @@ router.get('/me', async (req, res) => {
       res.json({ user: null });
       return;
     }
-    res.json({ user: await loadClientUser(database.query,payload.userId) });
+    res.json({ user: withAdminFlag(await loadClientUser(database.query,payload.userId)) });
   } catch {
     res.json({ user: null });
   }

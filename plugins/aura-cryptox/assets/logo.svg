@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="16" y1="16" x2="112" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="100%" stop-color="#111C33"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="28" y1="28" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="55%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <!-- 10% empty margin baked in: outer artwork stays inside [13, 115] -->
+  <rect x="14" y="14" width="100" height="100" rx="24" fill="url(#bgGrad)" stroke="url(#accentGrad)" stroke-width="4"/>
+  <!-- Candlesticks & trend breakout vector -->
+  <line x1="40" y1="44" x2="40" y2="88" stroke="#10B981" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="34" y="54" width="12" height="22" rx="3" fill="#10B981"/>
+  <line x1="64" y1="36" x2="64" y2="84" stroke="#06B6D4" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="58" y="45" width="12" height="24" rx="3" fill="#06B6D4"/>
+  <line x1="88" y1="30" x2="88" y2="76" stroke="#F59E0B" stroke-width="3.5" stroke-linecap="round"/>
+  <rect x="82" y="38" width="12" height="20" rx="3" fill="#F59E0B"/>
+  <!-- Trend arc -->
+  <path d="M30 88 L56 64 L72 72 L96 36" stroke="#F8FAFC" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="96" cy="36" r="4" fill="#F59E0B"/>
+</svg>

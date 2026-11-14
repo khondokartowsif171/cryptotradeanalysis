@@ -2,82 +2,125 @@
   "name": "Crypto News Fetcher",
   "nodes": [
     {
+      "id": "370068fd-f208-4fe2-86cc-4c703a9ada00",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
             {
-              "field": "hours",
+              "field": "minutes",
               "minutesInterval": 30
             }
           ]
         }
-      },
-      "id": "crypto-news-schedule",
-      "name": "Every 30 Minutes",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1,
-      "position": [0, 0]
+      }
     },
     {
-      "parameters": {
-        "method": "GET",
-        "url": "https://min-api.cryptocompare.com/data/v2/news/?lang=EN&limit=10",
-        "sendHeaders": true,
-        "options": {}
-      },
-      "id": "crypto-news-fetch",
-      "name": "Fetch CryptoCompare News",
+      "id": "b155a713-780d-4eed-811f-f57ec606928b",
+      "name": "Fetch Cointelegraph RSS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [240, 0]
+      "position": [
+        460,
+        300
+      ],
+      "parameters": {
+        "url": "https://cointelegraph.com/rss",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const items = [];\nconst newsData = $input.first().json.Data || [];\nfor (const article of newsData) {\n  items.push({\n    json: {\n      title: article.title,\n      source: article.source,\n      url: article.url,\n      category: article.categories,\n      summary: article.body ? article.body.slice(0, 500) : '',\n      image: article.imageurl || '',\n      published_at: new Date(article.published_on * 1000).toISOString(),\n      fetched_at: new Date().toISOString()\n    }\n  });\n}\nreturn items.length > 0 ? items : [{ json: { _empty: true } }];"
-      },
-      "id": "crypto-news-transform",
-      "name": "Transform Data",
+      "id": "923c27c1-44a5-44b6-9898-1dfc514150eb",
+      "name": "Parse RSS Feed",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 0]
+      "position": [
+        680,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const xml = String($input.first().json.data || $input.first().json.body || '');\nconst itemMatches = xml.match(/<item>[\\s\\S]*?<\\/item>/g) || [];\nconst clean = (s) => (s || '').replace(/<!\\[CDATA\\[|\\]\\]>/g, '').replace(/<[^>]+>/g, '').trim();\nconst items = itemMatches.slice(0, 15).map((block) => {\n  const title = clean((block.match(/<title>([\\s\\S]*?)<\\/title>/i) || [])[1]);\n  const link = clean((block.match(/<link>([\\s\\S]*?)<\\/link>/i) || [])[1]);\n  const pubDate = clean((block.match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/i) || [])[1]);\n  return {\n    title,\n    url: link,\n    source: 'Cointelegraph',\n    published_at: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),\n    fetched_at: new Date().toISOString(),\n  };\n}).filter((x) => x.title && x.url);\n\nreturn [{ json: { kind: 'news', items } }];"
+      }
     },
     {
+      "id": "f192c2ab-4c11-44c0-9a77-8d6c1b301999",
+      "name": "Ingest News to CryptoX API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        900,
+        300
+      ],
       "parameters": {
-        "collection": "news",
-        "fields": {
-          "values": {
-            "string": [
-              {"key": "title", "value": "={{$json.title}}"},
-              {"key": "source", "value": "={{$json.source}}"},
-              {"key": "url", "value": "={{$json.url}}"},
-              {"key": "category", "value": "={{$json.category}}"},
-              {"key": "summary", "value": "={{$json.summary}}"},
-              {"key": "image", "value": "={{$json.image}}"},
-              {"key": "published_at", "value": "={{$json.published_at}}"},
-              {"key": "fetched_at", "value": "={{$json.fetched_at}}"}
-            ]
-          }
+        "method": "POST",
+        "url": "https://cryptox-api.auraajenticai.cloud/signals/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-webhook-secret",
+              "value": "YOUR_N8N_WEBHOOK_SECRET"
+            }
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
-          "cleanUp": false
+          "timeout": 10000
         }
-      },
-      "id": "crypto-news-mongo",
-      "name": "Insert to MongoDB",
-      "type": "n8n-nodes-base.mongoDb",
-      "typeVersion": 2,
-      "position": [720, 0]
+      }
     }
   ],
   "connections": {
     "Every 30 Minutes": {
-      "main": [[{"node": "Fetch CryptoCompare News", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch Cointelegraph RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Fetch CryptoCompare News": {
-      "main": [[{"node": "Transform Data", "type": "main", "index": 0}]]
+    "Fetch Cointelegraph RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse RSS Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Transform Data": {
-      "main": [[{"node": "Insert to MongoDB", "type": "main", "index": 0}]]
+    "Parse RSS Feed": {
+      "main": [
+        [
+          {
+            "node": "Ingest News to CryptoX API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
+  },
+  "settings": {
+    "executionOrder": "v1"
   }
 }

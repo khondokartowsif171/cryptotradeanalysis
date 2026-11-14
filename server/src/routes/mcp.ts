@@ -14,11 +14,13 @@ const transports = new Map<string, SSEServerTransport>();
 router.get('/info', async (req: Request, res: Response) => {
   res.json({
     name: 'aura-cryptox-mcp',
-    version: '1.2.0',
-    description: 'Universal Model Context Protocol (MCP) Server for real-time cryptocurrency intelligence, quantitative trading signals, on-chain portfolio checks, DEX swap routing, and autonomous AI trading.',
-    protocol: 'Model Context Protocol (MCP) v2024-11-05',
+    version: '1.3.0',
+    description: 'Universal Model Context Protocol (MCP) Server for institutional closed-candle quantitative signals, on-chain portfolio checks, DEX swap estimates, and admin trading.',
+    protocol: 'Model Context Protocol (MCP) v2025-03-26',
+    canonicalEndpoint: 'https://crypto.auraajenticai.cloud/mcp',
     transport: {
-      type: 'SSE (Server-Sent Events)',
+      type: 'Streamable HTTP (primary at https://crypto.auraajenticai.cloud/mcp) + Legacy Admin SSE',
+      streamableHttpEndpoint: 'https://crypto.auraajenticai.cloud/mcp',
       sseEndpoint: 'https://cryptox-api.auraajenticai.cloud/mcp',
       messagesEndpoint: 'https://cryptox-api.auraajenticai.cloud/mcp/messages',
     },

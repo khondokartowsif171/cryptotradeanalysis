@@ -15,6 +15,7 @@ import { ensureBillingSchema } from './billing/database.js';
 import { authMiddleware } from './middleware/auth.js';
 import { requireAdmin } from './middleware/entitlements.js';
 import { query } from './db/pool.js';
+import { syncAllQuantSignalsToMongo } from './quant/signalEngine.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -82,6 +83,16 @@ async function start() {
   }
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`CryptoX API running on port ${PORT} (with MCP Server at /mcp)`);
+    if (process.env.MONGO_URL) {
+      setTimeout(() => {
+        void syncAllQuantSignalsToMongo()
+          .then((r) => console.log('Initial Quant Engine sync:', r))
+          .catch((e) => console.error('Initial Quant Engine sync failed:', e?.message || e));
+      }, 2500);
+      setInterval(() => {
+        void syncAllQuantSignalsToMongo().catch((e) => console.error('Scheduled Quant Engine sync failed:', e?.message || e));
+      }, 5 * 60_000);
+    }
   });
 }
 

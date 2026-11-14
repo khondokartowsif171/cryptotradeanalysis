@@ -2,85 +2,176 @@
   "name": "Crypto Price Alert",
   "nodes": [
     {
+      "id": "3d7589f7-cdbf-414f-a9b0-b9f0cffa5c46",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
       "parameters": {
         "rule": {
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 5
+              "minutesInterval": 15
             }
           ]
         }
-      },
-      "id": "alert-schedule",
-      "name": "Every 5 Minutes",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1,
-      "position": [0, 0]
+      }
     },
     {
-      "parameters": {
-        "method": "GET",
-        "url": "https://api.binance.com/api/v3/ticker/price?symbols=[\"BTCUSDT\",\"ETHUSDT\",\"SOLUSDT\"]",
-        "sendHeaders": true,
-        "options": {}
-      },
-      "id": "alert-fetch",
-      "name": "Fetch Binance Prices",
+      "id": "30029b98-ead5-4adf-b134-4294c5c44733",
+      "name": "Fetch Binance 24h Tickers",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
-      "position": [240, 0]
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "url": "https://data-api.binance.vision/api/v3/ticker/24hr?symbols=%5B%22BTCUSDT%22,%22ETHUSDT%22,%22SOLUSDT%22%5D",
+        "options": {
+          "timeout": 10000
+        }
+      }
     },
     {
+      "id": "9f918591-171f-4fdb-bb87-7f295bee16fb",
+      "name": "Evaluate Price Alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
       "parameters": {
-        "conditions": {
-          "number": [
+        "jsCode": "const rows = $input.all().map((i) => i.json).flat();\nconst now = new Date().toISOString();\nconst parsed = rows.filter((r) => r && r.symbol).map((r) => ({\n  symbol: r.symbol,\n  price: Number(r.lastPrice || r.price || 0),\n  change24h: Number(r.priceChangePercent || 0),\n  high24h: Number(r.highPrice || 0),\n  low24h: Number(r.lowPrice || 0),\n}));\nconst movers = parsed.filter((x) => Math.abs(x.change24h) >= 3);\nconst items = parsed.map((x) => ({\n  id: `alert:${x.symbol}`,\n  symbol: x.symbol,\n  price: x.price,\n  change24h: Number(x.change24h.toFixed(2)),\n  severity: Math.abs(x.change24h) >= 5 ? 'HIGH' : Math.abs(x.change24h) >= 3 ? 'MEDIUM' : 'INFO',\n  message: `${x.symbol} at $${x.price.toLocaleString()} (${x.change24h >= 0 ? '+' : ''}${x.change24h.toFixed(2)}% 24h)`,\n  created_at: now,\n}));\nconst telegramText = movers.length\n  ? '*CryptoX Volatility Alert*\\n' + movers.map((m) => `• *${m.symbol}*: $${m.price.toLocaleString()} (${m.change24h >= 0 ? '+' : ''}${m.change24h.toFixed(2)}%)`).join('\\n')\n  : '';\n\nreturn [{\n  json: {\n    kind: 'alert',\n    items,\n    shouldNotifyTelegram: movers.length > 0,\n    telegramText,\n  }\n}];"
+      }
+    },
+    {
+      "id": "a7b4f111-1180-4e32-991b-11e87d112233",
+      "name": "Ingest Alert to CryptoX API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        880,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://cryptox-api.auraajenticai.cloud/signals/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "value1": "={{$json.price}}",
-              "operation": "Smaller",
-              "value2": 70000
+              "name": "x-webhook-secret",
+              "value": "YOUR_N8N_WEBHOOK_SECRET"
             }
           ]
         },
-        "combine": "ALL"
-      },
-      "id": "alert-check",
-      "name": "Check BTC < $70K",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [480, 0]
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ kind: \"alert\", items: $json.items }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
     },
     {
+      "id": "e01629f6-48aa-41d9-a7ac-c21efd328884",
+      "name": "Volatility >= 3%?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        880,
+        400
+      ],
       "parameters": {
-        "collection": "alerts",
-        "fields": {
-          "values": {
-            "string": [
-              {"key": "symbol", "value": "={{$json.symbol}}"},
-              {"key": "price", "value": "={{$json.price}}"},
-              {"key": "type", "value": "BTC_THRESHOLD"},
-              {"key": "threshold", "value": "70000"},
-              {"key": "triggered_at", "value": "={{$now.toISOString()}}"}
-            ]
-          }
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldNotifyTelegram }}",
+              "value2": true
+            }
+          ]
         }
-      },
-      "id": "alert-log",
-      "name": "Log to MongoDB",
-      "type": "n8n-nodes-base.mongoDb",
-      "typeVersion": 2,
-      "position": [720, -120]
+      }
+    },
+    {
+      "id": "8cb276e4-d64a-4551-b96a-0db6604e98c6",
+      "name": "Send Telegram Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botYOUR_TELEGRAM_BOT_TOKEN/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"YOUR_TELEGRAM_CHAT_ID\", text: $json.telegramText, parse_mode: \"Markdown\" }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
     }
   ],
   "connections": {
-    "Every 5 Minutes": {
-      "main": [[{"node": "Fetch Binance Prices", "type": "main", "index": 0}]]
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Binance 24h Tickers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Fetch Binance Prices": {
-      "main": [[{"node": "Check BTC < $70K", "type": "main", "index": 0}]]
+    "Fetch Binance 24h Tickers": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Price Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
-    "Check BTC < $70K": {
-      "main": [[{"node": "Log to MongoDB", "type": "main", "index": 0}]]
+    "Evaluate Price Alerts": {
+      "main": [
+        [
+          {
+            "node": "Ingest Alert to CryptoX API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Volatility >= 3%?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Volatility >= 3%?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
+  },
+  "settings": {
+    "executionOrder": "v1"
   }
 }

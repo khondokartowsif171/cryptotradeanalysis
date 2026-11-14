@@ -1,6 +1,11 @@
-import { Router, RequestHandler } from 'express';
+import { createHash } from 'node:crypto';
+import { Router, type Request, type RequestHandler } from 'express';
+import jwt from 'jsonwebtoken';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createCryptoMcpServer } from '../mcp/server.js';
+import { database } from '../billing/database.js';
+import { loadClientUser } from '../billing/store.js';
+import type { AuthPayload } from '../middleware/auth.js';
 
 const router = Router();
 const endpoint = 'https://crypto.auraajenticai.cloud/mcp';
@@ -8,6 +13,33 @@ const allowedOrigins = new Set([
   'https://crypto.auraajenticai.cloud', 'https://cryptox-api.auraajenticai.cloud',
   'https://chatgpt.com', 'https://chat.openai.com',
 ]);
+
+async function resolveBearerUser(req: Request): Promise<{ userId: string; email: string; tier: 'free' | 'pro' | 'vip' } | null> {
+  const auth = req.get('Authorization');
+  if (!auth?.startsWith('Bearer ')) return null;
+  const token = auth.slice(7).trim();
+  if (!token) return null;
+
+  if (/^crx_live_[A-Za-z0-9_-]{43}$/.test(token)) {
+    const hash = createHash('sha256').update(token).digest('hex');
+    const row = (await database.query('SELECT id, user_id FROM client_api_keys WHERE key_hash=$1 AND revoked_at IS NULL AND expires_at>NOW()', [hash])).rows[0];
+    if (!row) throw new Error('Invalid or expired client API key');
+    const user = await loadClientUser(database.query, row.user_id);
+    if (!user || user.tier !== 'vip') throw new Error('Active VIP subscription required for client API key');
+    await database.query('UPDATE client_api_keys SET last_used_at=NOW() WHERE id=$1', [row.id]);
+    return { userId: user.id, email: user.email, tier: user.tier };
+  }
+
+  try {
+    const secret = process.env.JWT_SECRET || 'cryptox-dev-secret-change-in-production';
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
+    const user = await loadClientUser(database.query, payload.userId);
+    if (!user) throw new Error('Account not found');
+    return { userId: user.id, email: user.email, tier: user.tier };
+  } catch {
+    throw new Error('Invalid or expired Bearer token');
+  }
+}
 
 router.use((req, res, next) => {
   const origin = req.get('Origin');
@@ -20,20 +52,39 @@ router.use((req, res, next) => {
 });
 
 router.get('/info', (_req, res) => {
-  // Keep documentation explicit about the anonymous connector's boundary.
   res.json({
     name: 'Aura CryptoX', version: '1.3.0', endpoint,
-    transport: 'Streamable HTTP', authentication: 'none',
-    capabilities: ['live prices', 'market overview', 'signals', 'news', 'public wallet lookup', 'token metadata', 'swap estimates', 'paper trade simulation'],
-    privateAccountAccess: false, liveTrading: false,
-    setup: { name: 'Aura CryptoX', serverUrl: endpoint, authentication: 'No authentication' },
-    testPrompt: 'Use Aura CryptoX to fetch BTC price and simulate a $10 BUY at 1x leverage. Do not place a real order.',
+    transport: 'Streamable HTTP',
+    authentication: 'none (public read-only) or optional Bearer <crx_live_api_key | jwt> (Pro/VIP multi-asset quant feed & synced portfolio)',
+    capabilities: [
+      'live prices',
+      'market overview',
+      'closed-candle M15/H1/H4 quant signals + futures funding/OI',
+      'news',
+      'public wallet lookup',
+      'token metadata',
+      'swap estimates',
+      'paper trade simulation',
+      'pro/vip multi-asset signals & synced account (Bearer auth)',
+    ],
+    privateAccountAccess: 'Bearer token optional for VIP/Pro account sync',
+    liveTrading: false,
+    setup: { name: 'Aura CryptoX', serverUrl: endpoint, authentication: 'Optional Bearer API Key' },
+    testPrompt: 'Use Aura CryptoX to analyze BTC with closed-candle multi-timeframe quant signals and simulate a $100 BUY at 2x leverage.',
   });
 });
 
 router.post('/', async (req, res) => {
-  // Stateless JSON responses avoid sticky sessions during rolling deployments.
-  const server = createCryptoMcpServer({ publicOnly: true });
+  let authenticatedUser: { userId: string; email: string; tier: 'free' | 'pro' | 'vip' } | null = null;
+  if (req.get('Authorization')) {
+    try {
+      authenticatedUser = await resolveBearerUser(req);
+    } catch (err: any) {
+      return res.status(401).json({ jsonrpc: '2.0', id: req.body?.id ?? null, error: { code: -32001, message: err?.message || 'Unauthorized' } });
+    }
+  }
+
+  const server = createCryptoMcpServer({ publicOnly: true, authenticatedUser });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
   res.on('close', () => { void server.close().catch(console.error); });
   try {

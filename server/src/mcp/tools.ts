@@ -1,4 +1,8 @@
 import { ethers } from 'ethers';
+import { getMongo } from '../db/mongo.js';
+import { query as pgQuery } from '../db/pool.js';
+import { loadClientUser } from '../billing/store.js';
+import { analyzeSymbolQuant, syncAllQuantSignalsToMongo } from '../quant/signalEngine.js';
 import {
   executeAutonomousTrade,
   monitorAndManageTrades,
@@ -144,47 +148,108 @@ export async function getMarketOverview() {
 }
 
 export async function getTradingSignals(symbol: string = 'BTC') {
-  const priceData = await getLivePrice(symbol);
-  const chg = priceData.change24h;
-
-  let signal: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
-  let confidence = '75%';
-  let indicator = 'Range Consolidation';
-
-  if (chg > 2.0) {
-    signal = 'BUY';
-    confidence = '84%';
-    indicator = 'High Volume Bullish Trend Continuation';
-  } else if (chg < -2.0) {
-    signal = 'SELL';
-    confidence = '82%';
-    indicator = 'Bearish Distribution Pressure + Breakdown Signal';
-  } else {
-    signal = 'HOLD';
-    confidence = '78%';
-    indicator = 'Range Consolidation • Wait for Range Break';
+  const cleanSym = symbol.toUpperCase().replace(/USDT$|USD$/i, '').trim() || 'BTC';
+  if (cleanSym === 'ALL') {
+    const multi = await getMultiAssetSignals();
+    return {
+      symbol: 'ALL',
+      pair: 'MULTI-ASSET',
+      multiAsset: multi.signals,
+      count: multi.signals.length,
+      generatedAt: new Date().toISOString(),
+    };
   }
 
-  const p = priceData.price;
-  const entryLower = p * 0.998;
-  const entryUpper = p * 1.002;
-  const takeProfit = signal === 'BUY' ? p * 1.035 : signal === 'SELL' ? p * 0.945 : p * 1.02;
-  const stopLoss = signal === 'BUY' ? p * 0.98 : signal === 'SELL' ? p * 1.035 : p * 0.98;
+  const priceData = await getLivePrice(cleanSym);
+  try {
+    const quant = await analyzeSymbolQuant(cleanSym, { livePrice: priceData.price });
+    const entryLower = quant.entry * 0.9985;
+    const entryUpper = quant.entry * 1.0015;
+    return {
+      symbol: quant.symbol,
+      pair: `${quant.symbol}/USDT`,
+      currentPrice: quant.entry,
+      signal: quant.type,
+      confidence: `${quant.confidence}%`,
+      indicator: quant.indicator,
+      timeframe: quant.timeframe,
+      entryZone: `$${entryLower.toFixed(quant.entry >= 100 ? 2 : 4)} - $${entryUpper.toFixed(quant.entry >= 100 ? 2 : 4)}`,
+      takeProfitTarget: `$${quant.takeProfit}`,
+      stopLoss: `$${quant.stopLoss}`,
+      riskRewardRatio: quant.riskRewardRatio,
+      rsi14: quant.rsi,
+      macdHistogram: quant.macdHistogram,
+      ema50: quant.ema50,
+      ema200: quant.ema200,
+      atr14: quant.atr,
+      fundingRate: quant.fundingRate,
+      openInterest: quant.openInterest,
+      supportLevels: quant.supportLevels,
+      resistanceLevels: quant.resistanceLevels,
+      reasons: quant.reasons,
+      antiRepainting: true,
+      closedCandleTime: quant.closedCandleTime,
+      source: quant.source,
+      disclaimer: 'Closed-candle multi-timeframe quantitative analysis. Always manage position risk.',
+      generatedAt: quant.generated_at,
+    };
+  } catch {
+    const p = priceData.price;
+    const chg = priceData.change24h;
+    const fallbackSig: 'BUY' | 'SELL' | 'HOLD' = chg > 2.0 ? 'BUY' : chg < -2.0 ? 'SELL' : 'HOLD';
+    return {
+      symbol: priceData.symbol,
+      pair: `${priceData.symbol}/USDT`,
+      currentPrice: p,
+      signal: fallbackSig,
+      confidence: '50%',
+      indicator: 'Live Price Ticker Fallback (klines temporarily unreachable)',
+      entryZone: `$${(p * 0.998).toFixed(2)} - $${(p * 1.002).toFixed(2)}`,
+      takeProfitTarget: `$${(p * (fallbackSig === 'SELL' ? 0.96 : 1.04)).toFixed(2)}`,
+      stopLoss: `$${(p * (fallbackSig === 'SELL' ? 1.02 : 0.98)).toFixed(2)}`,
+      riskRewardRatio: '1:2.0',
+      timeframe: '1H / 4H',
+      disclaimer: 'Fallback summary while multi-timeframe klines were unavailable.',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+}
 
+export async function getMultiAssetSignals() {
+  try {
+    if (process.env.MONGO_URL) {
+      const db = await getMongo();
+      let list = await db.collection('signals').find({}).sort({ confidence: -1, generated_at: -1 }).limit(16).toArray();
+      if (!list.length) {
+        await syncAllQuantSignalsToMongo();
+        list = await db.collection('signals').find({}).sort({ confidence: -1, generated_at: -1 }).limit(16).toArray();
+      }
+      return { source: 'MongoDB Quant Feed', signals: list, fetchedAt: new Date().toISOString() };
+    }
+  } catch {}
+  const settled = await Promise.allSettled(['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT'].map((s) => analyzeSymbolQuant(s)));
+  const signals = settled.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').map((r) => r.value);
+  return { source: 'Direct Quant Engine', signals, fetchedAt: new Date().toISOString() };
+}
+
+export async function getSyncedAccountSummary(userId: string) {
+  const user = await loadClientUser(pgQuery, userId);
+  if (!user) throw new Error('Account not found');
+  const [watchRes, portRes] = await Promise.all([
+    pgQuery('SELECT coin_ids FROM watchlists WHERE user_id = $1', [userId]),
+    pgQuery('SELECT holdings FROM portfolios WHERE user_id = $1', [userId]),
+  ]);
   return {
-    symbol: priceData.symbol,
-    pair: `${priceData.symbol}/USDT`,
-    currentPrice: p,
-    signal,
-    confidence,
-    indicator,
-    entryZone: `$${entryLower.toFixed(2)} - $${entryUpper.toFixed(2)}`,
-    takeProfitTarget: `$${takeProfit.toFixed(2)}`,
-    stopLoss: `$${stopLoss.toFixed(2)}`,
-    riskRewardRatio: '1:2.4',
-    timeframe: '1H / 4H Institutional Swing',
-    disclaimer: 'Algorithmic quantitative signal for analytical execution. Always manage position size.',
-    generatedAt: new Date().toISOString(),
+    user: {
+      id: user.id,
+      email: user.email,
+      wallet_address: user.wallet_address,
+      tier: user.tier,
+      tier_expires_at: user.tier_expires_at,
+    },
+    watchlist: watchRes.rows[0]?.coin_ids || [],
+    portfolio: portRes.rows[0]?.holdings || [],
+    fetchedAt: new Date().toISOString(),
   };
 }
 

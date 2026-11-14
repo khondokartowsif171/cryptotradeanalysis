@@ -2,7 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import * as tools from './tools.js';
 
-export function createCryptoMcpServer({ publicOnly = false } = {}) {
+export interface McpServerOptions {
+  publicOnly?: boolean;
+  authenticatedUser?: { userId: string; email: string; tier: 'free' | 'pro' | 'vip' } | null;
+}
+
+export function createCryptoMcpServer({ publicOnly = false, authenticatedUser = null }: McpServerOptions = {}) {
   const server = new McpServer({
     name: 'aura-cryptox-mcp',
     version: publicOnly ? '1.3.0' : '1.2.0',
@@ -42,21 +47,21 @@ export function createCryptoMcpServer({ publicOnly = false } = {}) {
 
   server.tool(
     'crypto_get_trading_signals',
-    'Get a simple BUY/SELL/HOLD heuristic based on 24-hour price change and illustrative risk levels. Not a calibrated forecast or validated trading strategy.',
+    'Get institutional closed-candle multi-timeframe (15m/1H/4H) BUY/SELL/HOLD quantitative signals using EMA 50/200, Wilder RSI-14, MACD, ATR-14 stops, and Binance Futures funding/OI.',
     {
-      symbol: z.string().optional().describe('Coin symbol, defaults to BTC'),
+      symbol: z.string().optional().describe('Coin symbol (e.g. BTC, ETH, SOL) or ALL for multi-asset slate; defaults to BTC'),
     },
     { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
     async ({ symbol }) => {
       try {
-        const data = await tools.getTradingSignals(symbol || 'BTC');
-        if (publicOnly) {
+        const data: any = await tools.getTradingSignals(symbol || 'BTC');
+        if (publicOnly && !authenticatedUser) {
           const { confidence, indicator, timeframe, riskRewardRatio, disclaimer, ...quote } = data;
           return { content: [{ type: 'text', text: JSON.stringify({
             ...quote,
-            method: '24-hour price change: BUY above +2%, SELL below -2%, otherwise HOLD',
+            method: 'M15/H1/4H Closed-Candle Confluence (EMA50/200, Wilder RSI-14, MACD, ATR-14, Perp Funding/OI)',
             calibratedProbability: null,
-            disclaimer: 'Unvalidated price-change heuristic. Targets are illustrative; no measured win rate, predictive probability or guarantee is available.',
+            disclaimer: 'Analytical closed-candle indicator summary; no guaranteed win rate or predictive probability.',
           }, null, 2) }] };
         }
         return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
@@ -181,6 +186,37 @@ export function createCryptoMcpServer({ publicOnly = false } = {}) {
         return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
       }
     });
+
+    if (authenticatedUser && (authenticatedUser.tier === 'pro' || authenticatedUser.tier === 'vip')) {
+      server.registerTool('crypto_get_multi_asset_signals', {
+        title: 'Multi-Asset Quant Signal Feed',
+        description: 'Fetch all active closed-candle multi-timeframe quant signals (Top Crypto pairs + Gold/FX from VPS Signal Bot). Requires Pro or VIP authentication.',
+        inputSchema: {},
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      }, async () => {
+        try {
+          const data = await tools.getMultiAssetSignals();
+          return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+        } catch (err: any) {
+          return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+        }
+      });
+
+      server.registerTool('crypto_get_my_synced_account', {
+        title: 'My Synced Portfolio & Watchlist',
+        description: 'Read your authenticated Aura CryptoX subscription tier, synced watchlist coins, and synced portfolio holdings.',
+        inputSchema: {},
+        annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      }, async () => {
+        try {
+          const data = await tools.getSyncedAccountSummary(authenticatedUser.userId);
+          return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] };
+        } catch (err: any) {
+          return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+        }
+      });
+    }
+
     return server;
   }
 

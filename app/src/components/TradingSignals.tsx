@@ -13,6 +13,7 @@ const TradingSignals: React.FC = () => {
   const [liveSignals,setLiveSignals] = useState<PremiumSignal[]>([]);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState('');
+  const [assetFilter,setAssetFilter] = useState<'all' | 'crypto' | 'fx'>('all');
   useEffect(() => {
     setLiveSignals([]); setLastUpdated(''); setError('');
     if (!allowed) return;
@@ -32,19 +33,43 @@ const TradingSignals: React.FC = () => {
     return () => { mounted = false; window.clearInterval(timer); };
   },[allowed,user?.id,refreshUser]);
   if (!allowed) return <PlanAccess title="Premium trading signals" />;
-  const signals = liveSignals;
-  const source = 'Premium signals published by the signal service';
+  const isFxSymbol = (s: PremiumSignal) => {
+    const cls = String(s.assetClass || '').toLowerCase();
+    if (cls === 'fx' || cls === 'commodity' || cls === 'gold') return true;
+    const raw = String(s.pair || s.symbol || '').toUpperCase();
+    return raw.includes('XAU') || raw.includes('EUR') || raw.includes('GBP') || raw.includes('JPY');
+  };
+  const signals = liveSignals.filter((s) => assetFilter === 'all' ? true : assetFilter === 'fx' ? isFxSymbol(s) : !isFxSymbol(s));
+  const source = 'Closed-candle MTF Quant Engine + VPS Signal Bot (anti-repainting)';
 
   return (
     <section className="w-full">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-2xl font-bold">Trading Signals</h2>
           <p className="text-sm text-muted-foreground mt-1">{source}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {loading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Zap className="w-4 h-4 text-primary" />}
-          <span className="text-xs text-muted-foreground">{lastUpdated ? `Last feed response ${lastUpdated}` : 'Waiting for feed'}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1 rounded-lg bg-secondary/50 p-1 text-xs">
+            {([
+              ['all', 'All'],
+              ['crypto', 'Crypto'],
+              ['fx', 'Gold & FX'],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setAssetFilter(key)}
+                className={`px-2.5 py-1 rounded-md font-medium transition-colors ${assetFilter === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Zap className="w-4 h-4 text-primary" />}
+            <span className="text-xs text-muted-foreground">{lastUpdated ? `Last feed response ${lastUpdated}` : 'Waiting for feed'}</span>
+          </div>
         </div>
       </div>
 
@@ -68,7 +93,7 @@ const TradingSignals: React.FC = () => {
           const indicator = signal.indicator || `RSI(${signal.rsi ? signal.rsi.toFixed(0) : '14'})`;
 
           return (
-            <div key={signal.id || signal._id || pair} className="glass-card-hover p-5">
+            <div key={signal.id || signal._id || `${pair}-${timeframe}`} className="glass-card-hover p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold">{pair}</span>
@@ -101,11 +126,22 @@ const TradingSignals: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-secondary/50 rounded-lg p-3 mb-4">
+              <div className="bg-secondary/50 rounded-lg p-3 mb-4 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Potential {isSell ? 'Short' : 'Profit'}</span>
                   <span className="text-sm font-bold font-mono text-emerald-400">{profitPercent === null ? 'Not provided' : `${Number(profitPercent)>0 ? '+' : ''}${profitPercent}%`}</span>
                 </div>
+                {(signal.riskRewardRatio != null || signal.fundingRate != null || signal.closedCandleTime) && (
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
+                    <span>{signal.riskRewardRatio != null ? `R:R 1:${Number(signal.riskRewardRatio).toFixed(1)}` : 'MTF Feed'}</span>
+                    {signal.fundingRate != null && (
+                      <span className="font-mono">Funding {(Number(signal.fundingRate) * 100).toFixed(3)}%</span>
+                    )}
+                    {signal.closedCandleTime && (
+                      <span className="font-mono">Close {new Date(signal.closedCandleTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -115,9 +151,16 @@ const TradingSignals: React.FC = () => {
                 </div>
                 <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
                   <div className={`h-full rounded-full transition-all duration-500 ${confidence >= 80 ? 'bg-emerald-500' : confidence >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                    style={{ width: `${signal.confidence == null ? 'Not provided' : `${confidence}%`}` }} />
+                    style={{ width: `${signal.confidence == null ? '0%' : `${confidence}%`}` }} />
                 </div>
                 <p className="text-[10px] text-muted-foreground">{indicator}</p>
+                {Array.isArray(signal.reasons) && signal.reasons.length > 0 && (
+                  <ul className="space-y-0.5 pt-1 text-[10px] text-muted-foreground">
+                    {signal.reasons.slice(0, 3).map((r, idx) => (
+                      <li key={idx} className="truncate">• {r}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           );

@@ -8,6 +8,7 @@ export interface User {
   wallet_address?: string;
   tier?: string;
   tier_expires_at?: string;
+  is_admin?: boolean;
 }
 
 export interface Plan {
@@ -36,6 +37,25 @@ export interface PremiumSignal {
   id?: string; _id?: string; type?: string; pair?: string; symbol?: string;
   entry?: string | number; price?: string | number; target?: string | number; takeProfit?: string | number;
   stopLoss?: string | number; stop_loss?: string | number; confidence?: string | number; timeframe?: string; interval?: string; indicator?: string; rsi?: number;
+  generated_at?: string; riskRewardRatio?: number | null; fundingRate?: number | null; openInterest?: number | null;
+  reasons?: string[]; assetClass?: string; closedCandleTime?: string; atr?: number | null;
+  ema9?: number | null; ema21?: number | null; ema50?: number | null; ema200?: number | null; macdHistogram?: number | null; source?: string;
+}
+export interface AdminUserRow {
+  id: string; email: string; wallet_address: string | null; created_at: string;
+  tier: string; tier_expires_at: string | null; watchlist_count: number;
+  portfolio_count: number; api_keys_count: number; confirmed_payments: number; is_admin: boolean;
+}
+export interface AdminHealthStatus { ok: boolean; error?: string; status?: number }
+export interface AdminStatsResponse {
+  users: number; activePaidUsers: number; watchlists: number; portfolios: number;
+  subscribers: number; pendingIntents: number; confirmedIntents: number; autonomousTrades: number;
+  mongo: { news: number; signals: number; alerts: number };
+  health: { postgres: AdminHealthStatus; mongo: AdminHealthStatus; candleProxy: AdminHealthStatus; priceProxy: AdminHealthStatus; signalBot: AdminHealthStatus };
+}
+export interface AdminIntentsResponse {
+  intents: (PaymentIntent & { user_email?: string; email?: string; user_wallet?: string })[];
+  grants: Array<{ id: string; source_id?: string; user_id: string; user_email?: string; email?: string; user_wallet?: string; tier: string; source?: string; starts_at: string; ends_at: string; tx_hash?: string | null; amount_usd?: string | null }>;
 }
 export interface ClientApiKey { id: string; name: string; suffix: string; created_at: string; expires_at: string; revoked_at?: string | null; last_used_at?: string | null; }
 export class ApiError extends Error {
@@ -174,6 +194,21 @@ export const api = {
   },
 
   signals: {
-    get: () => request<{ signals: PremiumSignal[] }>('/signals'),
+    get: () => request<{ signals: PremiumSignal[]; source?: string }>('/signals'),
+  },
+
+  admin: {
+    stats: () => request<AdminStatsResponse>('/admin/stats'),
+    users: () => request<{ users: AdminUserRow[] }>('/admin/users'),
+    intents: () => request<AdminIntentsResponse>('/admin/intents'),
+    grantTier: (userId: string, tier: 'free' | 'pro' | 'vip', durationDays = 3650) =>
+      request<{ success: boolean; user: User }>(`/admin/users/${userId}/grant`, {
+        method: 'POST',
+        body: JSON.stringify({ tier, durationDays }),
+      }),
+    refreshQuant: () =>
+      request<{ success: boolean; signalsSynced: number; newsSynced: number; alertsLogged: number; refreshedAt: string }>('/admin/quant/refresh', {
+        method: 'POST',
+      }, 20000),
   },
 };

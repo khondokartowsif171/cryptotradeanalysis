@@ -4,7 +4,7 @@ import { useTickerData } from '@/hooks/useCryptoData';
 import { formatPrice, CRYPTO_COLORS } from '@/types/crypto';
 import {
   Search, X, Star, BarChart3, Newspaper, Activity, TrendingUp,
-  Sun, Moon, Menu, Loader2, Wallet, LogOut, User, Zap, Crown,
+  Sun, Moon, Menu, Loader2, Wallet, LogOut, User, Zap, Crown, Shield,
 } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
 import { useContract } from '@/hooks/useContract';
@@ -62,6 +62,7 @@ const Header: React.FC = () => {
     { id: 'signals', label: 'Signals', icon: Activity },
     { id: 'watchlist', label: 'Watchlist', icon: Star },
     { id: 'news', label: 'News', icon: Newspaper },
+    ...(user?.is_admin ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
   ];
 
   return (
@@ -189,6 +190,14 @@ const Header: React.FC = () => {
                   >
                     <Zap className="w-3.5 h-3.5 text-amber-400" /> Subscription Plans
                   </button>
+                  {user.is_admin && (
+                    <button
+                      onClick={() => setActiveTab('admin')}
+                      className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-primary hover:bg-accent transition-colors"
+                    >
+                      <Shield className="w-3.5 h-3.5" /> Admin Command Center
+                    </button>
+                  )}
                   <button
                     onClick={signOut}
                     className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-red-400 hover:bg-accent transition-colors"
