@@ -5,11 +5,11 @@
   "description": "Institutional cryptocurrency quantitative analytics, closed-candle multi-timeframe trading signals (EMA, RSI, MACD, ATR, Futures Funding/OI), EVM on-chain portfolio valuation, and paper trade risk simulation.",
   "logo": "assets/logo.svg",
   "author": {
-    "name": "Khondokar Towsif (Aura Agentic AI)",
+    "name": "Aura Agentic AI",
     "url": "https://crypto.auraajenticai.cloud"
   },
   "homepage": "https://crypto.auraajenticai.cloud",
-  "repository": "https://github.com/khondokartowsif171/cryptotradeanalysis-public",
+  "repository": "https://github.com/khondokartowsif171/cryptotradeanalysis",
   "suggestedPrompts": [
     "Analyze BTC, ETH, and SOL across M15/H1/H4 using closed-candle indicators and Futures funding confluence",
     "Audit my EVM wallet balance and simulate a risk-managed trade position with 1:2.4 risk-to-reward",

@@ -81,6 +81,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const googleToken = params.get('google_auth_token');
+      const authError = params.get('auth_error');
+      if (googleToken) {
+        setToken(googleToken);
+        params.delete('google_auth_token');
+        const nextQuery = params.toString();
+        const cleanUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', cleanUrl);
+        void refreshUser().then(() => {
+          toast({ title: 'Signed in with Google!', description: 'Your CryptoX session is active.' });
+        });
+        return;
+      }
+      if (authError) {
+        params.delete('auth_error');
+        const nextQuery = params.toString();
+        const cleanUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', cleanUrl);
+        toast({ title: 'Google Sign-In Failed', description: authError, variant: 'destructive' });
+      }
+    }
     const stored = getStoredUser();
     if (stored) {
       setUser(stored);

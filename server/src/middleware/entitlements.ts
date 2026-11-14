@@ -7,10 +7,10 @@ declare global { namespace Express { interface Request { clientUser?: ClientUser
 const rank = { free: 0, pro: 1, vip: 2 };
 
 const DEFAULT_ADMIN_IDS = [
-  '6d7ee37f-8232-4249-834c-bd804db01781', // khondokartowsif171@gmail.com
-  'ad218de7-e64a-473e-bb14-69932fe7eadc', // 0x2c2891f4fb5000e0e288d16da3f1d780ee77714e
+  '6d7ee37f-8232-4249-834c-bd804db01781',
+  'ad218de7-e64a-473e-bb14-69932fe7eadc',
 ];
-const DEFAULT_ADMIN_EMAILS = ['khondokartowsif171@gmail.com'];
+const DEFAULT_ADMIN_EMAILS: string[] = [];
 
 export function isAdminPrincipal(user?: { userId?: string; id?: string; email?: string | null } | null): boolean {
   if (!user) return false;

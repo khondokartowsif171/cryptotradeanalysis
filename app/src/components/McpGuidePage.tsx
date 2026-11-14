@@ -21,7 +21,7 @@ const CANONICAL_MCP_URL = 'https://crypto.auraajenticai.cloud/mcp';
 const INFO_URL = 'https://crypto.auraajenticai.cloud/mcp/info';
 const OPENAPI_URL = 'https://crypto.auraajenticai.cloud/mcp/openapi.json';
 const PLUGIN_URL = 'https://crypto.auraajenticai.cloud/mcp/plugin.json';
-const GITHUB_REPO_URL = 'https://github.com/khondokartowsif171/cryptotradeanalysis-public';
+const GITHUB_REPO_URL = 'https://github.com/khondokartowsif171/cryptotradeanalysis';
 
 const AGENT_TABS: Array<{ id: AgentTabId; label: string; pathHint: string; snippet: string }> = [
   {

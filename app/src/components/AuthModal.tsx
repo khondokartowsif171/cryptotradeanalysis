@@ -28,6 +28,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
 
   const hasMetaMask = typeof window !== 'undefined' && Boolean((window as any).ethereum);
 
+  const handleGoogleAuth = () => {
+    const target =
+      typeof window !== 'undefined' && window.location.hostname === 'crypto.auraajenticai.cloud'
+        ? '/api/auth/google/start'
+        : 'https://crypto.auraajenticai.cloud/api/auth/google/start';
+    window.location.href = target;
+  };
+
   const handleMetaMaskAuth = async () => {
     if (!hasMetaMask) {
       window.open('https://metamask.io/download/', '_blank');
@@ -184,8 +192,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
                 MetaMask Not Detected — Install Extension
               </a>
             )}
+            <button
+              type="button"
+              onClick={handleGoogleAuth}
+              disabled={walletLoading || authLoading}
+              className="w-full flex items-center justify-center gap-2.5 bg-white text-slate-900 hover:bg-slate-100 border border-white/20 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.68-.22-2.47H12v4.67h6.46a5.52 5.52 0 0 1-2.39 3.62v3.01h3.87c2.26-2.08 3.58-5.15 3.58-8.83z" />
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.9l-3.87-3.01c-1.07.72-2.44 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.28v3.1A12 12 0 0 0 12 24z" />
+                <path fill="#FBBC05" d="M5.28 14.29a7.2 7.2 0 0 1 0-4.58V6.61H1.28a12 12 0 0 0 0 10.78l4-3.1z" />
+                <path fill="#EA4335" d="M12 4.76c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4 3.1c.95-2.84 3.6-4.95 6.72-4.95z" />
+              </svg>
+              Continue with Google
+            </button>
             <p className="text-[11px] text-center text-muted-foreground">
-              Zero password needed • Sign cryptographic message with your wallet
+              Zero password needed • Sign in with Google or Web3 MetaMask wallet
             </p>
 
             <div className="relative flex py-2 items-center">

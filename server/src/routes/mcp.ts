@@ -19,10 +19,8 @@ router.get('/info', async (req: Request, res: Response) => {
     protocol: 'Model Context Protocol (MCP) v2025-03-26',
     canonicalEndpoint: 'https://crypto.auraajenticai.cloud/mcp',
     transport: {
-      type: 'Streamable HTTP (primary at https://crypto.auraajenticai.cloud/mcp) + Legacy Admin SSE',
+      type: 'Streamable HTTP (primary at https://crypto.auraajenticai.cloud/mcp)',
       streamableHttpEndpoint: 'https://crypto.auraajenticai.cloud/mcp',
-      sseEndpoint: 'https://cryptox-api.auraajenticai.cloud/mcp',
-      messagesEndpoint: 'https://cryptox-api.auraajenticai.cloud/mcp/messages',
     },
     clientConfigurations: {
       antigravity: {

@@ -178,7 +178,7 @@ const Footer: React.FC = () => {
                 <Twitter className="w-4 h-4" />
               </button>
               <button
-                onClick={() => window.open('https://github.com/khondokartowsif171/cryptotradeanalysis-public', '_blank', 'noopener,noreferrer')}
+                onClick={() => window.open('https://github.com/khondokartowsif171/cryptotradeanalysis', '_blank', 'noopener,noreferrer')}
                 className="p-2 rounded-lg bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 title="View GitHub Repository"
                 aria-label="GitHub"
@@ -251,7 +251,7 @@ const Footer: React.FC = () => {
               <p><strong>Connect an assistant:</strong> The public MCP connector provides market tools and paper trade calculations at <code className="break-all">https://crypto.auraajenticai.cloud/mcp</code>. Paper calculations do not place real orders.</p>
               {resource === 'Blog' && <p>Product note: the installable app provides a Home Screen or desktop shortcut and an offline notice. Live market features require an internet connection.</p>}
               {(resource === 'Whitepaper' || resource === 'Research') && <p>This technical overview describes the current app. Review the source and connector documentation for implementation details.</p>}
-              <a className="text-cyan-500 underline" href="https://github.com/khondokartowsif171/cryptotradeanalysis-public" target="_blank" rel="noopener noreferrer">Source code and technical documentation</a>
+              <a className="text-cyan-500 underline" href="https://github.com/khondokartowsif171/cryptotradeanalysis" target="_blank" rel="noopener noreferrer">Source code and technical documentation</a>
             </>}
           </div>
         </DialogContent>

@@ -1,131 +1,125 @@
-# Aura CryptoX // Institutional Quant Terminal & Universal MCP Server
+# Aura CryptoX — Institutional Quant Terminal & Universal MCP Server
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Production Platform](https://img.shields.io/badge/Production-Live%20Platform-emerald?style=flat&logo=safari)](https://crypto.auraajenticai.cloud)
-[![Quant Terminal](https://img.shields.io/badge/Terminal-Quant%20Trading-blueviolet?style=flat&logo=tradingview)](https://trade.auraajenticai.cloud)
-[![MCP Protocol](https://img.shields.io/badge/MCP-v2024--11--05-orange?style=flat&logo=openai)](https://cryptox-api.auraajenticai.cloud/mcp/info)
-[![VPS Node](https://img.shields.io/badge/Host-Hostinger%20KVM%202%20(Coolify)-10b981)](https://crypto.auraajenticai.cloud)
+[![Production Platform](https://img.shields.io/badge/Production-Live%20Platform-emerald?style=flat)](https://crypto.auraajenticai.cloud)
+[![MCP Streamable HTTP](https://img.shields.io/badge/MCP-2025--03--26%20Streamable%20HTTP-F0B90B?style=flat)](https://crypto.auraajenticai.cloud/mcp/info)
+[![OpenAPI 3.1](https://img.shields.io/badge/OpenAPI-3.1.0-6366f1?style=flat)](https://crypto.auraajenticai.cloud/mcp/openapi.json)
 
-Aura CryptoX is an institutional-grade cryptocurrency analytics suite, automated quantitative trading engine, and universal **Model Context Protocol (MCP)** server built for high-concurrency market operations and autonomous AI agents.
+**Aura CryptoX** is an institutional-grade cryptocurrency quantitative analytics platform, closed-candle multi-timeframe trading signal engine, Web3 self-custodial payment portal, and **Canonical Streamable HTTP Model Context Protocol (MCP)** server built for autonomous AI agents.
 
 ---
 
-## 🌐 Official Production Deployments
+## Official Production Endpoints
 
-| Component | Official Live URL | Infrastructure / Node |
+| Service | Canonical Live URL | Protocol / Standard |
 | :--- | :--- | :--- |
-| **Main Web Platform** | [crypto.auraajenticai.cloud](https://crypto.auraajenticai.cloud) | Vite React SPA + Nginx Container (Port 80) |
-| **Quant Terminal** | [trade.auraajenticai.cloud](https://trade.auraajenticai.cloud) | High-Frequency Real-Time Trading Terminal |
-| **Backend API Engine** | [cryptox-api.auraajenticai.cloud](https://cryptox-api.auraajenticai.cloud) | Node 22 / Express / PostgreSQL 17 / MongoDB |
-| **Universal MCP SSE Stream** | `https://cryptox-api.auraajenticai.cloud/mcp` | Remote Server-Sent Events (SSE) Protocol |
-| **MCP Server Metadata** | [cryptox-api.auraajenticai.cloud/mcp/info](https://cryptox-api.auraajenticai.cloud/mcp/info) | Live Tool Manifest & Client Schemas |
+| **Web Platform & Live Terminal** | https://crypto.auraajenticai.cloud | React 18 / Vite / Real-Time Binance & On-Chain Feeds |
+| **Canonical MCP Endpoint** | https://crypto.auraajenticai.cloud/mcp | MCP `2025-03-26` Streamable HTTP (JSON-RPC 2.0) |
+| **MCP Discovery & Agent Configs** | https://crypto.auraajenticai.cloud/mcp/info | JSON Capabilities & Multi-Client Setup |
+| **OpenAPI 3.1.0 Schema** | https://crypto.auraajenticai.cloud/mcp/openapi.json | Custom GPT Actions / LangChain / Semantic Kernel |
+| **Universal Plugin Manifest** | https://crypto.auraajenticai.cloud/mcp/plugin.json | Antigravity & Multi-Agent Plugin Descriptor |
 
 ---
 
-## ⚡ Key Capabilities & Architecture
+## Connect Any AI Agent (`https://crypto.auraajenticai.cloud/mcp`)
 
-- **Zero Mock Data Architecture**: Real-time ticker feeds from Binance direct streams and breaking news from Cointelegraph RSS ingestion.
-- **Universal Model Context Protocol (MCP)**: Native integration enabling Claude Desktop, Cursor, Windsurf, n8n, and autonomous Telegram daemons to execute on-chain checks, price feeds, quant signals, and DEX swap routing.
-- **Institutional Quant Signals**: Algorithmic entry zones, risk-reward ratios (1:2.4+), take-profit targets, and stop-loss levels for BTC, ETH, SOL, and top assets.
-- **Enterprise Legal Suite**: Embedded portal dialogs for Terms of Service, Privacy Policy, Cookie Policy, Risk Disclosure, and AML Compliance.
-- **Self-Custodial EVM Hub**: On-chain portfolio valuation and direct MetaMask/Web3 wallet integration.
+All MCP clients connect to **one single canonical endpoint**: `https://crypto.auraajenticai.cloud/mcp`.
+Public read-only market, signal, wallet, and paper-simulation tools require **zero API key**. Pro/VIP users can pass `Authorization: Bearer crx_live_...` to unlock multi-asset quant coverage and account-synced portfolio intelligence.
 
----
+### Antigravity (`~/.gemini/antigravity/mcp_config.json`)
+```json
+{
+  "mcpServers": {
+    "aura-cryptox-mcp": {
+      "serverUrl": "https://crypto.auraajenticai.cloud/mcp"
+    }
+  }
+}
+```
+Full Antigravity Marketplace bundle (Plugin manifest, Skills, and Agent rules) is included in [`plugins/aura-cryptox/`](./plugins/aura-cryptox).
 
-## 🤖 Universal Model Context Protocol (MCP) Server
+### Claude Code CLI
+```bash
+# Public read-only mode
+claude mcp add --transport http aura-cryptox https://crypto.auraajenticai.cloud/mcp
 
-Connect any LLM client (Claude Desktop, Cursor IDE, Windsurf, n8n, or Python/TypeScript agents) to the Aura CryptoX MCP Server:
+# Pro / VIP Bearer mode
+claude mcp add --transport http --header "Authorization: Bearer YOUR_CRX_LIVE_KEY" aura-cryptox https://crypto.auraajenticai.cloud/mcp
+```
 
-### 1. Claude Desktop Configuration
-Add to `claude_desktop_config.json`:
+### Claude Desktop (`claude_desktop_config.json`)
 ```json
 {
   "mcpServers": {
     "aura-cryptox": {
-      "url": "https://cryptox-api.auraajenticai.cloud/mcp"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://crypto.auraajenticai.cloud/mcp"]
     }
   }
 }
 ```
 
-### 2. Cursor & Windsurf Configuration
-Add to `.cursor/mcp.json` or your MCP server settings:
-```json
-{
-  "mcpServers": {
-    "aura-cryptox": {
-      "url": "https://cryptox-api.auraajenticai.cloud/mcp"
-    }
-  }
-}
-```
+### Cursor (`~/.cursor/mcp.json`) / Windsurf (`mcp_config.json`) / Gemini CLI / Cline
+- **Cursor**: `{ "mcpServers": { "aura-cryptox": { "url": "https://crypto.auraajenticai.cloud/mcp" } } }`
+- **Windsurf**: `{ "mcpServers": { "aura-cryptox": { "serverUrl": "https://crypto.auraajenticai.cloud/mcp" } } }`
+- **Gemini CLI**: `{ "mcpServers": { "aura-cryptox": { "httpUrl": "https://crypto.auraajenticai.cloud/mcp" } } }`
+- **Cline**: `{ "mcpServers": { "aura-cryptox": { "url": "https://crypto.auraajenticai.cloud/mcp", "type": "streamableHttp" } } }`
+- **OpenAI Custom GPT Actions**: Import schema from `https://crypto.auraajenticai.cloud/mcp/openapi.json`
 
-### 3. n8n Automation Engine
-Connect via HTTP Request or MCP Tool node:
-- **Endpoint**: `https://cryptox-api.auraajenticai.cloud/mcp/execute/{{ $json.toolName }}`
-- **Method**: `POST`
-- **Headers**: `Content-Type: application/json`
+Complete machine-readable multi-agent configurations are also maintained in [`plugins/aura-cryptox/universal-agent-configs.json`](./plugins/aura-cryptox/universal-agent-configs.json).
 
-### 4. Registered MCP Tools (7 Enterprise Tools)
-| Tool Name | Parameters | Purpose |
+---
+
+## MCP Tool Suite (Zero-Mock Live Data)
+
+| Tool Name | Tier | Description |
 | :--- | :--- | :--- |
-| `crypto_get_live_price` | `symbol: string` | Real-time tick price, 24h high/low, and 24h USD volume from Binance. |
-| `crypto_get_market_overview` | *none* | Global top 10 market cap, volume, and live market sentiment. |
-| `crypto_get_trading_signals` | `symbol?: string` | Algorithmic quantitative entry zones, TP, SL, and confidence scoring. |
-| `crypto_get_latest_news` | `limit?: number` | Real-time breaking crypto news from Cointelegraph. |
-| `crypto_check_wallet_portfolio` | `walletAddress: string` | On-chain verified EVM balance and USD valuation via ethers.js. |
-| `crypto_get_token_metadata` | `symbol: string` | Canonical contract address, network, block explorer, and official site. |
-| `crypto_calculate_dex_swap` | `fromToken, toToken, amount` | Uniswap routing, slippage simulation, gas cost, and direct swap link. |
+| `crypto_get_live_price` | Public | Real-time Binance spot price, 24h high/low, change %, and USD volume. |
+| `crypto_get_market_overview` | Public | Top market movers, Fear & Greed Sentiment Index, and aggregate market metrics. |
+| `crypto_get_trading_signals` | Public / VIP | Multi-timeframe (`15m` / `1H` / `4H`) **closed-candle** confluence (EMA50/200, Wilder RSI14, MACD, ATR14 1:2.4 R:R, Futures Funding & Open Interest). |
+| `crypto_get_latest_news` | Public | Real-time aggregated cryptocurrency market news headlines. |
+| `crypto_check_wallet_portfolio` | Public | Self-custodial EVM wallet balance & USD valuation across major networks via `ethers.js`. |
+| `crypto_get_token_metadata` | Public | Canonical contract address, chain metadata, official explorer, and website URLs. |
+| `crypto_calculate_dex_swap` | Public | Live AMM price quote, slippage estimate, gas preview, and routing link. |
+| `crypto_simulate_trade` | Public | Non-custodial risk-managed paper position & liquidation/TP/SL simulation against live spot quotes. |
 
 ---
 
-## 🛠️ Tech Stack & Topology
+## Architecture & Core Modules
 
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Radix UI.
-- **Backend**: Node.js 22, Express, `@modelcontextprotocol/sdk`, Ethers.js v6, Zod, PostgreSQL 17, MongoDB.
-- **Data Ingestion**: Binance REST/WebSocket Streams, Cointelegraph RSS Feed.
-- **Deployment**: Docker Compose on Hostinger KVM 2 (`195.35.7.154`), Coolify PaaS, Traefik Reverse Proxy, Let's Encrypt SSL.
+- **Closed-Candle Anti-Repainting Quant Engine (`server/src/quant/signalEngine.ts`)**: Evaluates strictly finalized candles (`index - 1`) across `M15`, `H1`, and `H4` using `EMA 9/20/21/50/200`, `Wilder RSI(14)`, `MACD`, `Bollinger Bands`, `ATR(14)` dynamic SL/TP (`1:2.4` R:R), Binance Futures Funding Rate, and Open Interest.
+- **Self-Custodial Web3 Subscriptions (`server/src/billing/`)**: On-chain verified USDC/USDT settlements across Ethereum, Polygon, Arbitrum, and Base directly to the configured EVM Treasury wallet, backed by transactional PostgreSQL grants and SHA-256 hashed `crx_live_...` client API keys.
+- **Multi-Modal Authentication**: Supports Email/Password, Google Sign-In, and EIP-191 MetaMask cryptographic wallet signatures.
+- **Frontend (`app/`)**: React 18, TypeScript, Vite, Tailwind CSS, TanStack Query, real-time Binance WebSocket price streaming, Interactive MCP & Agents Hub, and Admin Command Center.
 
 ---
 
-## 🚀 Local Development
+## Local Development & Verification
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/khondokartowsif171/cryptotradeanalysis-public.git
-cd cryptotradeanalysis-public
+git clone https://github.com/khondokartowsif171/cryptotradeanalysis.git
+cd cryptotradeanalysis
 
-# 2. Frontend setup
-cd app
-npm install
-npm run dev
-
-# 3. Backend API & MCP Server setup
-cd ../server
-npm install
+# Backend API & MCP Server
+cd server
+npm ci
+npm test
 npm run build
-npm start
+
+# Frontend Web Application
+cd ../app
+npm ci
+npm test
+npx tsc --noEmit
+npm run build
 ```
 
 ---
 
-## 📄 License & Intellectual Property
+## License
 
-Licensed under the **Apache License, Version 2.0** (the "License").  
-See the [`LICENSE`](./LICENSE) file for complete terms.
+Licensed under the **Apache License, Version 2.0**. See [`LICENSE`](./LICENSE) for full terms.
 
 ```text
-Copyright 2026 Amirul Islam Redwan / Aura Agentic AI (auraajenticai.cloud)
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Copyright 2026 Aura Agentic AI (auraajenticai.cloud)
 ```

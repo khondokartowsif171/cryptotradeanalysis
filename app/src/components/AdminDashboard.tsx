@@ -26,6 +26,7 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<AdminStatsResponse | null>(null);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [intentsData, setIntentsData] = useState<AdminIntentsResponse | null>(null);
+  const [treasuryWallet, setTreasuryWallet] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [refreshingQuant, setRefreshingQuant] = useState(false);
   const [mutatingUserId, setMutatingUserId] = useState<string | null>(null);
@@ -36,10 +37,11 @@ const AdminDashboard: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      const [statsRes, usersRes, intentsRes] = await Promise.all([
+      const [statsRes, usersRes, intentsRes, plansRes] = await Promise.all([
         api.admin.stats(),
         api.admin.users(),
         api.admin.intents(),
+        api.billing.getPlans().catch(() => null),
       ]);
       if (statsRes._offline || usersRes._offline || intentsRes._offline) {
         throw new Error('Backend API is offline or unreachable.');
@@ -47,6 +49,9 @@ const AdminDashboard: React.FC = () => {
       setStats(statsRes.data);
       setUsers(usersRes.data.users);
       setIntentsData(intentsRes.data);
+      if (plansRes && !plansRes._offline && plansRes.data?.treasury?.EVM) {
+        setTreasuryWallet(plansRes.data.treasury.EVM);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load admin telemetry';
       setError(msg);
@@ -182,7 +187,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Infra Health */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {healthNodes.map((node) => (
             <div key={node.label} className="glass-card p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -333,9 +338,17 @@ const AdminDashboard: React.FC = () => {
       {/* Billing Intents & Grants */}
       {intentsData && (
         <div className="glass-card p-5 space-y-4">
-          <h3 className="text-base font-bold flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-emerald-400" /> Billing Intents &amp; Subscription Grants
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-emerald-400" /> Billing Intents &amp; Subscription Grants
+            </h3>
+            {treasuryWallet && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px]">
+                <span className="text-emerald-400 font-semibold">Direct MetaMask Treasury:</span>
+                <code className="font-mono text-foreground">{treasuryWallet}</code>
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs">
             <div className="space-y-2">
               <div className="font-semibold text-muted-foreground">Recent On-Chain Invoices ({intentsData.intents.length})</div>

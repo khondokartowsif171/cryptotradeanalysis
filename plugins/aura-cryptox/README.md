@@ -14,8 +14,8 @@ Official Model Context Protocol (MCP) plugin and skill bundle for **Aura CryptoX
 
 Copy or symlink this folder to `~/.gemini/config/plugins/aura-cryptox/`:
 
-```powershell
-Copy-Item -Recurse -Force D:\cryptotradeanalysis\plugins\aura-cryptox C:\Users\Masud\.gemini\config\plugins\aura-cryptox
+```bash
+cp -r plugins/aura-cryptox ~/.gemini/config/plugins/aura-cryptox
 ```
 
 To unlock Pro/VIP authenticated capabilities, generate a `crx_live_...` API key in the Pricing / API Keys dialog on `https://crypto.auraajenticai.cloud` and pass it in your `mcp_config.json` `headers` (`"Authorization": "Bearer crx_live_..."`).

@@ -131,7 +131,7 @@ router.get('/info', (_req, res) => {
       infoUrl: `${endpoint}/info`,
       openApiUrl: `${endpoint}/openapi.json`,
       pluginManifestUrl: `${endpoint}/plugin.json`,
-      repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis-public',
+      repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis',
     },
     agentConfigs: universalAgentConfigs,
   });
@@ -210,9 +210,9 @@ router.get('/plugin.json', (_req, res) => {
     displayName: 'Aura CryptoX — Institutional Quant & Web3',
     version: '1.3.0',
     description: 'Institutional cryptocurrency quantitative analytics, closed-candle multi-timeframe trading signals (EMA, RSI, MACD, ATR, Futures Funding/OI), EVM on-chain portfolio valuation, and paper trade risk simulation.',
-    author: { name: 'Khondokar Towsif (Aura Agentic AI)', url: 'https://crypto.auraajenticai.cloud' },
+    author: { name: 'Aura Agentic AI', url: 'https://crypto.auraajenticai.cloud' },
     homepage: 'https://crypto.auraajenticai.cloud',
-    repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis-public',
+    repository: 'https://github.com/khondokartowsif171/cryptotradeanalysis',
     mcp: {
       transport: 'streamable-http',
       protocolVersion: '2025-03-26',

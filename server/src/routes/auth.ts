@@ -5,7 +5,7 @@ import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import { query } from '../db/pool.js';
 import { generateToken, authMiddleware } from '../middleware/auth.js';
-import { randomInt } from 'node:crypto';
+import { randomInt, createHmac, timingSafeEqual } from 'node:crypto';
 import { WalletAuth } from '../billing/walletAuth.js';
 import { database } from '../billing/database.js';
 import { loadClientUser } from '../billing/store.js';
@@ -34,7 +34,7 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-// Configure Mailer with Hostinger SSL
+// Configure SMTP Mailer
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.hostinger.com',
   port: parseInt(process.env.SMTP_PORT || '465', 10),
@@ -110,7 +110,7 @@ router.post('/login', rateLimit(10,60_000,req => String(req.body?.email || req.i
     }
     const account = result.rows[0];
     if (!account.password_hash) {
-      res.status(401).json({ error: 'This account uses Web3 MetaMask wallet login. Please connect your wallet.' });
+      res.status(401).json({ error: 'This account uses Google or Web3 MetaMask login. Please sign in with Google or connect your wallet.' });
       return;
     }
     const valid = await bcrypt.compare(password, account.password_hash);
@@ -164,7 +164,7 @@ router.post('/forgot-password', recoveryLimit, async (req, res) => {
       [email, code]
     );
 
-    // Send email via Hostinger SMTP
+    // Send email via SMTP
     try {
       await transporter.sendMail({
         from: '"Aura CryptoX Security" <ceo@auraajenticai.cloud>',
@@ -264,6 +264,105 @@ router.get('/me', async (req, res) => {
     res.json({ user: withAdminFlag(await loadClientUser(database.query,payload.userId)) });
   } catch {
     res.json({ user: null });
+  }
+});
+
+function googleSsoSecret(): string {
+  return process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'cryptox-dev-secret-change-in-production';
+}
+
+function verifyGoogleSsoToken(rawToken: string): { email: string; name?: string } | null {
+  const parts = rawToken.split('.');
+  if (parts.length !== 2) return null;
+  const [payloadB64, sigHex] = parts;
+  if (!payloadB64 || !sigHex || !/^[0-9a-f]+$/i.test(sigHex)) return null;
+  const expected = createHmac('sha256', googleSsoSecret()).update(payloadB64).digest('hex');
+  const a = Buffer.from(sigHex, 'hex');
+  const b = Buffer.from(expected, 'hex');
+  if (a.length === 0 || a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as {
+      email?: string;
+      name?: string;
+      exp?: number;
+    };
+    if (!parsed.email || !parsed.exp || parsed.exp < Date.now()) return null;
+    return { email: parsed.email.trim().toLowerCase(), name: parsed.name };
+  } catch {
+    return null;
+  }
+}
+
+async function findOrCreateGoogleUser(email: string) {
+  const cleanEmail = email.trim().toLowerCase();
+  const existing = await query('SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1', [cleanEmail]);
+  let userId: string;
+  if (existing.rows.length > 0) {
+    userId = existing.rows[0].id;
+  } else {
+    const inserted = await query(
+      'INSERT INTO users (email, password_hash, tier) VALUES ($1, $2, $3) RETURNING id',
+      [cleanEmail, '', 'free']
+    );
+    userId = inserted.rows[0].id;
+  }
+  const user = await loadClientUser(database.query, userId);
+  const token = generateToken({
+    userId: user.id,
+    email: user.email,
+    wallet: user.wallet_address || undefined,
+  });
+  return { user, token };
+}
+
+router.get('/google/start', (_req, res) => {
+  const callbackUrl = process.env.GOOGLE_SSO_CALLBACK_URL || 'https://crypto.auraajenticai.cloud/api/auth/google/sso';
+  const authGateway = process.env.GOOGLE_AUTH_GATEWAY_URL || 'https://auth.auraajenticai.cloud/login/google';
+  const target = `${authGateway}?next=${encodeURIComponent(callbackUrl)}`;
+  res.redirect(302, target);
+});
+
+router.get('/google/sso', async (req, res) => {
+  const frontendUrl = (process.env.FRONTEND_PUBLIC_URL || 'https://crypto.auraajenticai.cloud').replace(/\/+$/, '');
+  const ssoRaw = typeof req.query.sso === 'string' ? req.query.sso.trim() : '';
+  const verified = verifyGoogleSsoToken(ssoRaw);
+  if (!verified) {
+    return void res.redirect(302, `${frontendUrl}/?auth_error=${encodeURIComponent('Google sign-in expired or invalid')}`);
+  }
+  try {
+    const { token } = await findOrCreateGoogleUser(verified.email);
+    res.redirect(302, `${frontendUrl}/?google_auth_token=${encodeURIComponent(token)}`);
+  } catch (err: any) {
+    console.error('Google SSO login error:', err);
+    res.redirect(302, `${frontendUrl}/?auth_error=${encodeURIComponent('Unable to complete Google sign-in')}`);
+  }
+});
+
+router.post('/google', recoveryLimit, async (req, res) => {
+  try {
+    const idToken = typeof req.body?.idToken === 'string' ? req.body.idToken.trim() : '';
+    if (!idToken) {
+      return void res.status(400).json({ error: 'Google ID token required' });
+    }
+    const infoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!infoRes.ok) {
+      return void res.status(401).json({ error: 'Invalid Google ID token' });
+    }
+    const info = (await infoRes.json()) as { aud?: string; email?: string; email_verified?: string | boolean };
+    const expectedAud = process.env.GOOGLE_CLIENT_ID?.trim();
+    if (expectedAud && info.aud !== expectedAud) {
+      return void res.status(401).json({ error: 'Google client mismatch' });
+    }
+    if (!info.email || !(info.email_verified === true || info.email_verified === 'true')) {
+      return void res.status(401).json({ error: 'Verified Google email required' });
+    }
+    const { user, token } = await findOrCreateGoogleUser(info.email);
+    res.json({ user: withAdminFlag(user), token });
+  } catch (err: any) {
+    console.error('Google token login error:', err);
+    res.status(500).json({ error: err?.message || 'Google login failed' });
   }
 });
 
