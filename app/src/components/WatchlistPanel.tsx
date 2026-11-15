@@ -3,33 +3,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useTickerData } from '@/hooks/useCryptoData';
 import { formatPrice, CRYPTO_COLORS } from '@/types/crypto';
 import { Star, TrendingUp, TrendingDown, X, ArrowRight, Loader2 } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
-
-const MiniSparkline: React.FC<{ positive: boolean }> = ({ positive }) => {
-  const data = useMemo(() => {
-    const points: number[] = [];
-    let v = 50;
-    for (let i = 0; i < 24; i++) {
-      v += (Math.random() - 0.5) * 10;
-      points.push(v);
-    }
-    return points.map((v) => ({ v }));
-  }, []);
-
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <Line
-          type="monotone"
-          dataKey="v"
-          stroke={positive ? '#10b981' : '#ef4444'}
-          strokeWidth={2}
-          dot={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
+import RealSparkline from '@/components/RealSparkline';
 
 const WatchlistPanel: React.FC = () => {
   const { watchlist, toggleWatchlist, setActiveCoin, setActiveTab } = useAppContext();
@@ -155,7 +129,12 @@ const WatchlistPanel: React.FC = () => {
                 </p>
               </div>
               <div className="w-28 h-12">
-                <MiniSparkline positive={coin.change24h >= 0} />
+                <RealSparkline
+                  symbol={coin.symbol}
+                  positive={coin.change24h >= 0}
+                  className="w-28 h-12"
+                  strokeWidth={2}
+                />
               </div>
             </div>
 

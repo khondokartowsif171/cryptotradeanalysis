@@ -3,35 +3,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useAssets } from '@/hooks/useCryptoData';
 import { formatPrice, CRYPTO_COLORS, STABLECOINS } from '@/types/crypto';
 import { Star, ArrowUpDown, TrendingUp, TrendingDown, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
-
-const MiniSparkline: React.FC<{ positive: boolean }> = ({ positive }) => {
-  const data = useMemo(() => {
-    const points: number[] = [];
-    let v = 50;
-    for (let i = 0; i < 24; i++) {
-      v += (Math.random() - 0.5) * 10;
-      points.push(v);
-    }
-    return points.map((v) => ({ v }));
-  }, []);
-
-  return (
-    <div className="w-24 h-8">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <Line
-            type="monotone"
-            dataKey="v"
-            stroke={positive ? '#10b981' : '#ef4444'}
-            strokeWidth={1.5}
-            dot={false}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
+import RealSparkline from '@/components/RealSparkline';
 
 const CryptoTable: React.FC = () => {
   const {
@@ -233,7 +205,7 @@ const CryptoTable: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-3 py-3 flex justify-end">
-                    <MiniSparkline positive={coin.change24h >= 0} />
+                    <RealSparkline symbol={coin.symbol} positive={coin.change24h >= 0} className="w-24 h-8" />
                   </td>
                 </tr>
               ))}

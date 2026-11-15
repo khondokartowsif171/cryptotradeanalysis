@@ -38,6 +38,26 @@ export function useKlineData(symbol: string, timeframe: string) {
   });
 }
 
+export function useSparklineData(symbol: string, enabled: boolean = true) {
+  const cleanSymbol = symbol.trim().toUpperCase().replace(/USDT$/i, '');
+  const pair = cleanSymbol ? `${cleanSymbol}USDT` : '';
+
+  return useQuery({
+    queryKey: ['binance', 'sparkline', pair],
+    queryFn: async () => {
+      const raw = await getKlines(pair, '1h', 24);
+      return raw
+        .map((k) => ({ v: parseFloat(k.close) }))
+        .filter((point) => Number.isFinite(point.v));
+    },
+    enabled: enabled && Boolean(cleanSymbol),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 export function useMarketOverview() {
   const globalQuery = useQuery({
     queryKey: ['coingecko', 'global'],
