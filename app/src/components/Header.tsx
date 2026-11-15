@@ -23,6 +23,12 @@ const Header: React.FC = () => {
   const searchRef = useRef<HTMLInputElement>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showPricing, setShowPricing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const sameWalletAsUser = Boolean(
+    user?.wallet_address &&
+    account &&
+    user.wallet_address.toLowerCase() === account.toLowerCase()
+  );
   const { data: tickers, isLoading } = useTickerData();
 
   useEffect(() => {
@@ -174,33 +180,40 @@ const Header: React.FC = () => {
 
             {/* Auth / User */}
             {user ? (
-              <div className="hidden sm:flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-3 py-2 rounded-lg cursor-pointer group relative">
+              <div
+                onClick={() => setMenuOpen((open) => !open)}
+                onMouseLeave={() => setMenuOpen(false)}
+                title={user.wallet_address || user.email}
+                aria-label={sameWalletAsUser ? `Signed in and connected wallet ${account}` : `Account ${user.wallet_address || user.email}`}
+                className={`${sameWalletAsUser ? 'flex px-2 sm:px-3' : 'hidden sm:flex px-3'} items-center gap-2 bg-primary/10 text-primary border border-primary/20 py-2 rounded-lg cursor-pointer group relative`}
+              >
+                {sameWalletAsUser && <Wallet className="w-4 h-4 sm:hidden" />}
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-sm font-mono font-medium">
+                <span className={`${sameWalletAsUser ? 'hidden sm:inline' : ''} text-sm font-mono font-medium`}>
                   {user.wallet_address
                     ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}`
                     : `${user.email.slice(0, 10)}..`}
                 </span>
-                <div className="absolute right-0 top-full mt-1 w-44 glass-card p-2 shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                <div className={`absolute right-0 top-full mt-1 w-44 glass-card p-2 shadow-xl transition-all z-50 group-hover:opacity-100 group-hover:visible ${menuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                   <div className="px-2 py-1.5 text-[10px] text-muted-foreground border-b border-border/40 mb-1">
                     Tier: <span className="font-bold text-primary uppercase">{activeTier(user)}</span>
                   </div>
                   <button
-                    onClick={() => setShowPricing(true)}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setShowPricing(true); }}
                     className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-foreground hover:bg-accent transition-colors"
                   >
                     <Zap className="w-3.5 h-3.5 text-amber-400" /> Subscription Plans
                   </button>
                   {user.is_admin && (
                     <button
-                      onClick={() => setActiveTab('admin')}
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setActiveTab('admin'); }}
                       className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-primary hover:bg-accent transition-colors"
                     >
                       <Shield className="w-3.5 h-3.5" /> Admin Command Center
                     </button>
                   )}
                   <button
-                    onClick={signOut}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); signOut(); }}
                     className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-red-400 hover:bg-accent transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5" /> Sign Out
@@ -216,8 +229,8 @@ const Header: React.FC = () => {
               </button>
             )}
 
-            {/* Wallet Connect Status */}
-            {account ? (
+            {/* Wallet Connect Status (hidden when identical to signed-in wallet pill) */}
+            {!sameWalletAsUser && (account ? (
               <div title={account} aria-label={`Connected wallet ${account}`} className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-2 sm:px-3 py-2 rounded-lg">
                 <Wallet className="w-4 h-4 sm:hidden" />
                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -237,7 +250,7 @@ const Header: React.FC = () => {
                   <><Wallet className="w-4 h-4" /><span className="hidden sm:inline">Connect Wallet</span></>
                 )}
               </button>
-            )}
+            ))}
           </div>
         </div>
 
