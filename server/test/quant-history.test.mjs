@@ -151,3 +151,28 @@ test('evaluatePriceAgainstSignal handles FX/Gold SELL outcomes and computeTrackR
     true
   );
 });
+
+test('evaluateCandlesAgainstSignal ignores candles between closedCandleTime and later openedAt live entry', () => {
+  const closedCandleMs = Date.parse('2026-11-15T01:59:59.999Z');
+  const openedMs = Date.parse('2026-11-15T02:56:52.000Z');
+  const sig = {
+    type: 'SELL',
+    entry: 65000,
+    takeProfit: 63000,
+    stopLoss: 66000,
+    closedCandleTime: new Date(closedCandleMs).toISOString(),
+    openedAt: new Date(openedMs).toISOString(),
+  };
+
+  // Candle at 02:30 occurred after H1 closeTime (01:59) but BEFORE openedAt (02:56) -> must be ignored
+  const preOpenCandle = makeCandle(Date.parse('2026-11-15T02:30:00.000Z'), 64800, 66500, 65100);
+  // Candle at 03:00 occurred strictly after openedAt -> stays within TP/SL
+  const postOpenCandle = makeCandle(Date.parse('2026-11-15T03:00:00.000Z'), 64500, 65400, 64900);
+
+  const outcome = evaluateCandlesAgainstSignal(
+    sig,
+    [preOpenCandle, postOpenCandle],
+    Date.parse('2026-11-15T03:20:00.000Z')
+  );
+  assert.equal(outcome, null);
+});

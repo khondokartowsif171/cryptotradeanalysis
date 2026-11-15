@@ -63,8 +63,8 @@ export function useMarketOverview() {
   const globalQuery = useQuery({
     queryKey: ['coingecko', 'global'],
     queryFn: getCoinGeckoGlobal,
-    refetchInterval: 60000,
-    staleTime: 30000,
+    refetchInterval: 300000,
+    staleTime: 180000,
   });
 
   const fearGreedQuery = useQuery({

@@ -96,3 +96,42 @@ test('GET /markets/caps never invents fake caps on cold upstream outage', async 
   assert.equal(body.unavailable, true);
   assert.equal(body.stale, true);
 });
+
+test('GET /markets/global caches CoinGecko global stats and falls back cleanly on upstream error', async (t) => {
+  let fetches = 0;
+  let fail = false;
+  const app = express();
+  app.use(
+    '/markets',
+    createMarketsRouter({
+      ttlMs: 300_000,
+      fetcher: async () => {
+        fetches++;
+        if (fail) return new Response('rate limit', { status: 429 });
+        return new Response(
+          JSON.stringify({
+            data: {
+              active_cryptocurrencies: 14000,
+              total_market_cap: { usd: 2_350_000_000_000 },
+              total_volume: { usd: 95_000_000_000 },
+              market_cap_percentage: { btc: 56.2, eth: 9.8 },
+              market_cap_change_percentage_24h_usd: -1.4,
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      },
+    })
+  );
+
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const first = await fetch(`${base}/markets/global`).then((r) => r.json());
+  const second = await fetch(`${base}/markets/global`).then((r) => r.json());
+  assert.equal(fetches, 1);
+  assert.equal(first.data.total_market_cap.usd, 2_350_000_000_000);
+  assert.equal(second.cached, true);
+});

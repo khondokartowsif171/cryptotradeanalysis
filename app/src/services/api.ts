@@ -37,7 +37,7 @@ export interface PremiumSignal {
   id?: string; _id?: string; type?: string; pair?: string; symbol?: string;
   entry?: string | number; price?: string | number; target?: string | number; takeProfit?: string | number;
   stopLoss?: string | number; stop_loss?: string | number; confidence?: string | number; timeframe?: string; interval?: string; indicator?: string; rsi?: number;
-  generated_at?: string; riskRewardRatio?: number | null; fundingRate?: number | null; openInterest?: number | null;
+  generated_at?: string; riskRewardRatio?: string | number | null; fundingRate?: number | null; openInterest?: number | null;
   reasons?: string[]; assetClass?: string; closedCandleTime?: string; atr?: number | null;
   ema9?: number | null; ema21?: number | null; ema50?: number | null; ema200?: number | null; macdHistogram?: number | null; source?: string;
 }

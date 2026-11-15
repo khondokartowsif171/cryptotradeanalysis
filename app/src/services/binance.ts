@@ -119,10 +119,12 @@ export interface CoinGeckoGlobal {
 }
 
 export async function getCoinGeckoGlobal(): Promise<CoinGeckoGlobal> {
-  return rateLimiter.enqueue(async () => {
-    const res = await fetchWithRetry(`${COINGECKO_URL}/global`, 1);
-    return res.json();
+  const apiBase = import.meta.env.VITE_API_URL || '/api';
+  const res = await fetch(`${apiBase}/markets/global`, {
+    signal: AbortSignal.timeout(8000),
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 export interface CoinGeckoFearGreed {

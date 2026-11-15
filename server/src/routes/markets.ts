@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 const COINGECKO_MARKETS_URL =
   'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false';
+const COINGECKO_GLOBAL_URL = 'https://api.coingecko.com/api/v3/global';
 const CACHE_TTL_MS = 5 * 60_000;
 
 export interface MarketCapsSnapshot {
@@ -41,6 +42,8 @@ export function createMarketsRouter(deps?: {
 
   let cache: { caps: Record<string, number>; updatedAt: string; fetchedAtMs: number } | null = null;
   let inflight: Promise<MarketCapsSnapshot> | null = null;
+  let globalCache: { payload: Record<string, unknown>; fetchedAtMs: number } | null = null;
+  let globalInflight: Promise<Record<string, unknown>> | null = null;
 
   async function loadCaps(): Promise<MarketCapsSnapshot> {
     const currentMs = now();
@@ -110,6 +113,47 @@ export function createMarketsRouter(deps?: {
     const snapshot = await loadCaps();
     res.setHeader('Cache-Control', 'public, max-age=120');
     res.json(snapshot);
+  });
+
+  router.get('/global', async (_req, res) => {
+    const currentMs = now();
+    if (globalCache && currentMs - globalCache.fetchedAtMs < ttlMs) {
+      res.setHeader('Cache-Control', 'public, max-age=120');
+      return void res.json({ ...globalCache.payload, cached: true, stale: false });
+    }
+
+    if (!globalInflight) {
+      globalInflight = (async () => {
+        try {
+          const headers: Record<string, string> = { Accept: 'application/json' };
+          const demoKey = process.env.COINGECKO_DEMO_API_KEY?.trim();
+          if (demoKey) headers['x-cg-demo-api-key'] = demoKey;
+
+          const upstream = await fetcher(COINGECKO_GLOBAL_URL, {
+            headers,
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!upstream.ok) throw new Error(`CoinGecko global HTTP ${upstream.status}`);
+          const json = (await upstream.json()) as Record<string, unknown>;
+          if (!json || typeof json.data !== 'object' || !json.data) {
+            throw new Error('CoinGecko global payload empty');
+          }
+          globalCache = { payload: json, fetchedAtMs: now() };
+          return { ...json, cached: false, stale: false };
+        } catch {
+          if (globalCache) {
+            return { ...globalCache.payload, cached: true, stale: true };
+          }
+          return { data: null, unavailable: true, stale: true };
+        } finally {
+          globalInflight = null;
+        }
+      })();
+    }
+
+    const body = await globalInflight;
+    res.setHeader('Cache-Control', 'public, max-age=120');
+    res.json(body);
   });
 
   return router;

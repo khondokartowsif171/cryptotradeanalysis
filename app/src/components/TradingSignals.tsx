@@ -147,7 +147,15 @@ const TradingSignals: React.FC = () => {
                 </div>
                 {(signal.riskRewardRatio != null || signal.fundingRate != null || signal.closedCandleTime) && (
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
-                    <span>{signal.riskRewardRatio != null ? `R:R 1:${Number(signal.riskRewardRatio).toFixed(1)}` : 'MTF Feed'}</span>
+                    <span>
+                      {signal.riskRewardRatio != null
+                        ? String(signal.riskRewardRatio).includes(':')
+                          ? `R:R ${signal.riskRewardRatio}`
+                          : Number.isFinite(Number(signal.riskRewardRatio))
+                            ? `R:R 1:${Number(signal.riskRewardRatio).toFixed(1)}`
+                            : 'MTF Feed'
+                        : 'MTF Feed'}
+                    </span>
                     {signal.fundingRate != null && (
                       <span className="font-mono">Funding {(Number(signal.fundingRate) * 100).toFixed(3)}%</span>
                     )}

@@ -94,8 +94,9 @@ export function evaluateCandlesAgainstSignal(
   const openedMs = Date.parse(sig.openedAt || sig.closedCandleTime);
   if (!Number.isFinite(anchorMs) || !Number.isFinite(openedMs)) return null;
 
+  const startMs = Math.max(anchorMs, openedMs);
   const eligible = candles
-    .filter((c) => c.openTime >= anchorMs && c.closeTime <= nowMs)
+    .filter((c) => c.openTime >= startMs && c.closeTime <= nowMs)
     .sort((a, b) => a.openTime - b.openTime);
 
   for (const bar of eligible) {
