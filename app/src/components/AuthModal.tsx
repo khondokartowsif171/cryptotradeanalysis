@@ -29,10 +29,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onClose }) => {
   const hasMetaMask = typeof window !== 'undefined' && Boolean((window as any).ethereum);
 
   const handleGoogleAuth = () => {
-    const target =
-      typeof window !== 'undefined' && window.location.hostname === 'crypto.auraajenticai.cloud'
+    if (typeof window === 'undefined') return;
+    const base =
+      window.location.hostname === 'crypto.auraajenticai.cloud'
         ? '/api/auth/google/start'
         : 'https://crypto.auraajenticai.cloud/api/auth/google/start';
+    const target = `${base}?redirect=${encodeURIComponent(window.location.origin)}`;
     window.location.href = target;
   };
 

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import { query } from '../db/pool.js';
 import { generateToken, authMiddleware } from '../middleware/auth.js';
-import { randomInt, createHmac, timingSafeEqual } from 'node:crypto';
+import { randomInt, randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { WalletAuth } from '../billing/walletAuth.js';
 import { database } from '../billing/database.js';
 import { loadClientUser } from '../billing/store.js';
@@ -267,11 +267,39 @@ router.get('/me', async (req, res) => {
   }
 });
 
+const DEFAULT_FRONTEND_URL = 'https://crypto.auraajenticai.cloud';
+const ALLOWED_FRONTEND_ORIGINS = new Set([
+  'https://crypto.auraajenticai.cloud',
+  'https://cryptox.auraajenticai.cloud',
+  'https://cryptotradeanalysis.vercel.app',
+]);
+
 function googleSsoSecret(): string {
   return process.env.GOOGLE_CLIENT_SECRET || process.env.JWT_SECRET || 'cryptox-dev-secret-change-in-production';
 }
 
-function verifyGoogleSsoToken(rawToken: string): { email: string; name?: string } | null {
+function resolveFrontendOrigin(candidate?: string): string {
+  const configured = process.env.FRONTEND_PUBLIC_URL?.trim().replace(/\/+$/, '');
+  if (candidate) {
+    try {
+      const origin = new URL(candidate).origin;
+      if (ALLOWED_FRONTEND_ORIGINS.has(origin) || (configured && origin === configured)) {
+        return origin;
+      }
+    } catch {
+      // Ignore malformed redirect/referer URL and fall back to canonical domain
+    }
+  }
+  return configured || DEFAULT_FRONTEND_URL;
+}
+
+function signHmacPayload(payload: object): string {
+  const payloadB64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+  const sigHex = createHmac('sha256', googleSsoSecret()).update(payloadB64).digest('hex');
+  return `${payloadB64}.${sigHex}`;
+}
+
+function verifySignedPayload<T>(rawToken: string): T | null {
   const parts = rawToken.split('.');
   if (parts.length !== 2) return null;
   const [payloadB64, sigHex] = parts;
@@ -281,13 +309,43 @@ function verifyGoogleSsoToken(rawToken: string): { email: string; name?: string 
   const b = Buffer.from(expected, 'hex');
   if (a.length === 0 || a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
-    const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as {
-      email?: string;
-      name?: string;
-      exp?: number;
-    };
-    if (!parsed.email || !parsed.exp || parsed.exp < Date.now()) return null;
-    return { email: parsed.email.trim().toLowerCase(), name: parsed.name };
+    return JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+function verifyGoogleSsoToken(rawToken: string): { email: string; name?: string } | null {
+  const parsed = verifySignedPayload<{ email?: string; name?: string; exp?: number }>(rawToken);
+  if (!parsed?.email || !parsed.exp || parsed.exp < Date.now()) return null;
+  return { email: parsed.email.trim().toLowerCase(), name: parsed.name };
+}
+
+function signGoogleOAuthState(redirectTo: string): string {
+  return signHmacPayload({
+    ts: Date.now(),
+    nonce: randomBytes(12).toString('hex'),
+    redirectTo,
+  });
+}
+
+function verifyGoogleOAuthState(rawState: string): { redirectTo: string } | null {
+  const parsed = verifySignedPayload<{ ts?: number; redirectTo?: string }>(rawState);
+  if (!parsed || typeof parsed.ts !== 'number') return null;
+  if (Date.now() - parsed.ts > 15 * 60 * 1000 || parsed.ts > Date.now() + 60_000) return null;
+  return { redirectTo: resolveFrontendOrigin(parsed.redirectTo) };
+}
+
+function decodeGoogleIdTokenPayload(idToken: string): {
+  aud?: string;
+  iss?: string;
+  email?: string;
+  email_verified?: string | boolean;
+} | null {
+  const parts = idToken.split('.');
+  if (parts.length !== 3 || !parts[1]) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
   } catch {
     return null;
   }
@@ -315,15 +373,112 @@ async function findOrCreateGoogleUser(email: string) {
   return { user, token };
 }
 
-router.get('/google/start', (_req, res) => {
-  const callbackUrl = process.env.GOOGLE_SSO_CALLBACK_URL || 'https://crypto.auraajenticai.cloud/api/auth/google/sso';
-  const authGateway = process.env.GOOGLE_AUTH_GATEWAY_URL || 'https://auth.auraajenticai.cloud/login/google';
-  const target = `${authGateway}?next=${encodeURIComponent(callbackUrl)}`;
-  res.redirect(302, target);
+router.get('/google/start', (req, res) => {
+  const requestedRedirect = typeof req.query.redirect === 'string' ? req.query.redirect : req.headers.referer;
+  const frontendOrigin = resolveFrontendOrigin(requestedRedirect);
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  if (!clientId) {
+    return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Google sign-in is not configured')}`);
+  }
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() || 'https://crypto.auraajenticai.cloud/api/auth/google/callback';
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    prompt: 'select_account',
+    access_type: 'online',
+    state: signGoogleOAuthState(frontendOrigin),
+  });
+  res.redirect(302, `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);
+});
+
+router.get('/google/callback', async (req, res) => {
+  const rawState = typeof req.query.state === 'string' ? req.query.state.trim() : '';
+  const verifiedState = rawState ? verifyGoogleOAuthState(rawState) : null;
+  const frontendOrigin = verifiedState?.redirectTo || resolveFrontendOrigin();
+
+  const oauthError = typeof req.query.error === 'string' ? req.query.error.trim() : '';
+  if (oauthError) {
+    const message = oauthError === 'access_denied' ? 'Google sign-in was cancelled' : 'Google sign-in failed';
+    return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent(message)}`);
+  }
+
+  const code = typeof req.query.code === 'string' ? req.query.code.trim() : '';
+  if (!code || !verifiedState) {
+    return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Google sign-in expired or invalid')}`);
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Google sign-in is not configured')}`);
+  }
+
+  try {
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI?.trim() || 'https://crypto.auraajenticai.cloud/api/auth/google/callback';
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }).toString(),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text().catch(() => '');
+      console.error('Google token exchange failed:', tokenRes.status, errText.slice(0, 200));
+      return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Google sign-in verification failed')}`);
+    }
+
+    const tokenData = (await tokenRes.json()) as { id_token?: string; access_token?: string };
+    let email: string | undefined;
+    let emailVerified = false;
+
+    if (tokenData.id_token) {
+      const idPayload = decodeGoogleIdTokenPayload(tokenData.id_token);
+      if (idPayload && idPayload.aud === clientId) {
+        const validIssuer = idPayload.iss === 'https://accounts.google.com' || idPayload.iss === 'accounts.google.com';
+        if (validIssuer && idPayload.email && (idPayload.email_verified === true || idPayload.email_verified === 'true')) {
+          email = idPayload.email;
+          emailVerified = true;
+        }
+      }
+    }
+
+    if (!email && tokenData.access_token) {
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (userRes.ok) {
+        const info = (await userRes.json()) as { email?: string; email_verified?: boolean };
+        if (info.email && info.email_verified === true) {
+          email = info.email;
+          emailVerified = true;
+        }
+      }
+    }
+
+    if (!email || !emailVerified) {
+      return void res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Verified Google email required')}`);
+    }
+
+    const { token } = await findOrCreateGoogleUser(email);
+    res.redirect(302, `${frontendOrigin}/?google_auth_token=${encodeURIComponent(token)}`);
+  } catch (err: any) {
+    console.error('Google OAuth callback error:', err);
+    res.redirect(302, `${frontendOrigin}/?auth_error=${encodeURIComponent('Unable to complete Google sign-in')}`);
+  }
 });
 
 router.get('/google/sso', async (req, res) => {
-  const frontendUrl = (process.env.FRONTEND_PUBLIC_URL || 'https://crypto.auraajenticai.cloud').replace(/\/+$/, '');
+  const frontendUrl = resolveFrontendOrigin();
   const ssoRaw = typeof req.query.sso === 'string' ? req.query.sso.trim() : '';
   const verified = verifyGoogleSsoToken(ssoRaw);
   if (!verified) {
