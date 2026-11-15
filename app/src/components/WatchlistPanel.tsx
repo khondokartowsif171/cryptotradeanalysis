@@ -1,17 +1,19 @@
 import React, { useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { useTickerData } from '@/hooks/useCryptoData';
-import { formatPrice, CRYPTO_COLORS } from '@/types/crypto';
+import { useTickerData, useMarketCaps } from '@/hooks/useCryptoData';
+import { formatPrice, formatUsdCompact, resolveRealMarketCap, CRYPTO_COLORS } from '@/types/crypto';
 import { Star, TrendingUp, TrendingDown, X, ArrowRight, Loader2 } from 'lucide-react';
 import RealSparkline from '@/components/RealSparkline';
 
 const WatchlistPanel: React.FC = () => {
   const { watchlist, toggleWatchlist, setActiveCoin, setActiveTab } = useAppContext();
   const { data: tickers, isLoading } = useTickerData();
+  const { data: capsData } = useMarketCaps();
 
   const watchlistCoins = useMemo(() => {
     if (!tickers) return [];
     const watchIds = new Set(watchlist);
+    const caps = capsData?.caps;
     return tickers
       .filter((t) => {
         const base = t.symbol.replace('USDT', '').toLowerCase();
@@ -26,11 +28,11 @@ const WatchlistPanel: React.FC = () => {
           price: parseFloat(t.lastPrice),
           change24h: parseFloat(t.priceChangePercent),
           volume24h: parseFloat(t.quoteVolume),
-          marketCap: parseFloat(t.lastPrice) * parseFloat(t.volume),
+          marketCap: resolveRealMarketCap(symbol, caps),
           color: CRYPTO_COLORS[symbol] || '#6366f1',
         };
       });
-  }, [tickers, watchlist]);
+  }, [tickers, capsData, watchlist]);
 
   if (isLoading) {
     return (
@@ -142,7 +144,7 @@ const WatchlistPanel: React.FC = () => {
               <div>
                 <p className="text-[10px] text-muted-foreground">Market Cap</p>
                 <p className="text-xs font-mono font-medium">
-                  {formatPrice(coin.marketCap)}
+                  {formatUsdCompact(coin.marketCap)}
                 </p>
               </div>
               <div>

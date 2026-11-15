@@ -1,30 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { api,type PremiumSignal } from '@/services/api';
+import { api, type PremiumSignal, type SignalHistoryItem, type SignalTrackRecordSummary } from '@/services/api';
 import { formatCurrency } from '@/data/cryptoData';
 import { useAppContext } from '@/contexts/AppContext';
 import { activeTier } from '@/lib/subscription';
 import PlanAccess from '@/components/PlanAccess';
+import SignalTrackRecord from '@/components/SignalTrackRecord';
+import SignalAlertsPanel from '@/components/SignalAlertsPanel';
 import { Target, ShieldAlert, TrendingUp, TrendingDown, Minus, Zap, Loader2 } from 'lucide-react';
 
 const TradingSignals: React.FC = () => {
   const { user,refreshUser } = useAppContext();
-  const allowed = activeTier(user) !== 'free';
+  const tier = activeTier(user);
+  const allowed = tier !== 'free';
   const [lastUpdated,setLastUpdated] = useState('');
   const [liveSignals,setLiveSignals] = useState<PremiumSignal[]>([]);
+  const [trackSummary,setTrackSummary] = useState<SignalTrackRecordSummary | null>(null);
+  const [historyItems,setHistoryItems] = useState<SignalHistoryItem[]>([]);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState('');
   const [assetFilter,setAssetFilter] = useState<'all' | 'crypto' | 'fx'>('all');
   useEffect(() => {
-    setLiveSignals([]); setLastUpdated(''); setError('');
+    setLiveSignals([]); setTrackSummary(null); setHistoryItems([]); setLastUpdated(''); setError('');
     if (!allowed) return;
     let mounted = true;
     const load = async () => {
       setLoading(true);
       try {
-        const result = await api.signals.get();
+        const [result, histRes] = await Promise.all([
+          api.signals.get(),
+          api.signals.history(50).catch(() => ({ _offline: true as const })),
+        ]);
         if (!mounted) return;
         if (result._offline) throw new Error('The premium feed is unavailable. Reconnect to retry');
         setLiveSignals(result.data.signals); setLastUpdated(new Date().toLocaleTimeString()); setError('');
+        if (!histRes._offline && histRes.data) {
+          setTrackSummary(histRes.data.summary);
+          setHistoryItems(histRes.data.history);
+        }
       } catch(error) { if (mounted) { setError((error as Error).message); if ((error as {status?:number}).status === 403) void refreshUser(); } }
       finally { if (mounted) setLoading(false); }
     };
@@ -32,7 +44,7 @@ const TradingSignals: React.FC = () => {
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); },60000);
     return () => { mounted = false; window.clearInterval(timer); };
   },[allowed,user?.id,refreshUser]);
-  if (!allowed) return <PlanAccess title="Premium trading signals" />;
+  if (!allowed) return <PlanAccess title="Premium trading signals" showTrackRecord />;
   const isFxSymbol = (s: PremiumSignal) => {
     const cls = String(s.assetClass || '').toLowerCase();
     if (cls === 'fx' || cls === 'commodity' || cls === 'gold') return true;
@@ -74,6 +86,8 @@ const TradingSignals: React.FC = () => {
       </div>
 
       {error && <p role="status" className="mb-4 text-sm text-amber-500">{error}</p>}
+      <SignalTrackRecord summary={trackSummary} history={historyItems} loading={loading && !trackSummary} />
+      <SignalAlertsPanel tier={tier} />
       {!loading && !signals.length && !error && <p className="glass-card p-5 text-sm text-muted-foreground">No premium signals have been published yet. This feed does not substitute example trades.</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {signals.map(signal => {

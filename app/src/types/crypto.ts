@@ -7,7 +7,7 @@ export interface CryptoAsset {
   change24h: number;
   change7d: number;
   volume24h: number;
-  marketCap: number;
+  marketCap: number | null;
   sparkline: number[];
   color: string;
   icon: string;
@@ -182,3 +182,20 @@ export const symbolToId = (symbol: string): string =>
 
 export const idToSymbol = (id: string): string =>
   id.toUpperCase();
+
+export function resolveRealMarketCap(
+  symbol: string,
+  caps?: Record<string, number> | null
+): number | null {
+  if (!caps) return null;
+  const val = caps[symbol.trim().toUpperCase()];
+  return typeof val === 'number' && Number.isFinite(val) && val > 0 ? val : null;
+}
+
+export function formatUsdCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) return '—';
+  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}

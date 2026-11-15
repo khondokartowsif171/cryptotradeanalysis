@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
-import { useAssets } from '@/hooks/useCryptoData';
-import { formatPrice, CRYPTO_COLORS, STABLECOINS } from '@/types/crypto';
+import { useAssets, useMarketCaps } from '@/hooks/useCryptoData';
+import { formatPrice, formatUsdCompact, resolveRealMarketCap, CRYPTO_COLORS, STABLECOINS } from '@/types/crypto';
 import { Star, ArrowUpDown, TrendingUp, TrendingDown, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
 import RealSparkline from '@/components/RealSparkline';
 
@@ -12,11 +12,18 @@ const CryptoTable: React.FC = () => {
   } = useAppContext();
 
   const { data: assets, isLoading } = useAssets();
+  const { data: capsData } = useMarketCaps();
 
   const filteredAndSorted = useMemo(() => {
     if (!assets) return [];
 
-    let items = [...assets].filter((c) => !STABLECOINS.has(c.symbol));
+    const caps = capsData?.caps;
+    let items = assets
+      .filter((c) => !STABLECOINS.has(c.symbol))
+      .map((c) => ({
+        ...c,
+        marketCap: resolveRealMarketCap(c.symbol, caps),
+      }));
 
     if (searchQuery) {
       items = items.filter(
@@ -50,8 +57,8 @@ const CryptoTable: React.FC = () => {
           bVal = b.volume24h;
           break;
         case 'marketCap':
-          aVal = a.marketCap;
-          bVal = b.marketCap;
+          aVal = a.marketCap ?? (sortDirection === 'asc' ? Number.POSITIVE_INFINITY : -1);
+          bVal = b.marketCap ?? (sortDirection === 'asc' ? Number.POSITIVE_INFINITY : -1);
           break;
         default:
           aVal = a.rank;
@@ -64,7 +71,7 @@ const CryptoTable: React.FC = () => {
     });
 
     return items.slice(0, 50);
-  }, [assets, sortField, sortDirection, searchQuery]);
+  }, [assets, capsData, sortField, sortDirection, searchQuery]);
 
   const SortHeader: React.FC<{ field: string; label: string; align?: string }> = ({
     field,
@@ -201,7 +208,7 @@ const CryptoTable: React.FC = () => {
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className="text-sm font-mono text-muted-foreground">
-                      {formatPrice(coin.marketCap)}
+                      {formatUsdCompact(coin.marketCap)}
                     </span>
                   </td>
                   <td className="px-3 py-3 flex justify-end">

@@ -5,6 +5,7 @@ import { getMongo } from '../db/mongo.js';
 import { authMiddleware, type AuthPayload } from '../middleware/auth.js';
 import { isAdminPrincipal, requireTier } from '../middleware/entitlements.js';
 import { syncAllQuantSignalsToMongo } from '../quant/signalEngine.js';
+import { fetchSignalHistoryLedger, fetchTrackRecordSummary } from '../quant/signalHistory.js';
 
 const router = Router();
 
@@ -47,6 +48,30 @@ export const signalsHandler: RequestHandler = async (_req, res) => {
     res.status(503).json({ error: 'The premium signal feed is temporarily unavailable', signals: [] });
   }
 };
+
+router.get('/track-record', async (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  try {
+    const db = await getMongo();
+    const summary = await fetchTrackRecordSummary(db);
+    res.json({ summary, fetchedAt: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(503).json({ error: 'Track record temporarily unavailable', summary: null });
+  }
+});
+
+router.get('/history', authMiddleware, requireTier('pro'), async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const db = await getMongo();
+    const limitParam = Number(req.query.limit || 50);
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(200, Math.floor(limitParam))) : 50;
+    const { summary, history } = await fetchSignalHistoryLedger(db, limit);
+    res.json({ summary, history, count: history.length, fetchedAt: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(503).json({ error: 'Signal history ledger is temporarily unavailable', summary: null, history: [] });
+  }
+});
 
 router.get('/', authMiddleware, requireTier('pro'), signalsHandler);
 

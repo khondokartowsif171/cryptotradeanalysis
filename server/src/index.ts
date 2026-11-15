@@ -7,7 +7,9 @@ import watchlistRoutes from './routes/watchlist.js';
 import portfolioRoutes from './routes/portfolio.js';
 import subscribeRoutes from './routes/subscribe.js';
 import newsRoutes from './routes/news.js';
+import marketsRoutes from './routes/markets.js';
 import signalsRoutes from './routes/signals.js';
+import notificationsRoutes from './routes/notifications.js';
 import adminRoutes, { fetchPlatformSummary } from './routes/admin.js';
 import mcpRoutes from './routes/mcp.js';
 import connectorRoutes, { canonicalConnector } from './routes/connector.js';
@@ -63,7 +65,9 @@ app.use('/watchlist', watchlistRoutes);
 app.use('/portfolio', portfolioRoutes);
 app.use('/subscribe', subscribeRoutes);
 app.use('/news', newsRoutes);
+app.use('/markets', marketsRoutes);
 app.use('/signals', signalsRoutes);
+app.use('/notifications', notificationsRoutes);
 app.use('/admin', authMiddleware, requireAdmin, adminRoutes);
 
 // Mount Model Context Protocol (MCP) Router

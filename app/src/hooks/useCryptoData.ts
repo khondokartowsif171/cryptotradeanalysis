@@ -10,6 +10,7 @@ import {
   INTERVAL_LIMIT,
 } from '@/services/binance';
 import { CRYPTO_COLORS, TOP_COINS, STABLECOINS, symbolToId } from '@/types/crypto';
+import { api } from '@/services/api';
 import type { BinanceTicker } from '@/types/crypto';
 
 export function useTickerData() {
@@ -85,6 +86,18 @@ export function useAssets() {
   });
 }
 
+export function useMarketCaps() {
+  return useQuery({
+    queryKey: ['markets', 'caps'],
+    queryFn: async () => {
+      const res = await api.markets.caps();
+      return res._offline ? { caps: {} as Record<string, number>, updatedAt: null } : res.data;
+    },
+    refetchInterval: 300000,
+    staleTime: 180000,
+  });
+}
+
 export function filterTopCoins(tickers: BinanceTicker[]) {
   return tickers
     .filter((t) => {
@@ -102,7 +115,6 @@ export function tickerToAssetMap(ticker: BinanceTicker, rank: number) {
   const symbol = ticker.symbol.replace('USDT', '');
   const price = parseFloat(ticker.lastPrice);
   const quoteVolume = parseFloat(ticker.quoteVolume);
-  const volume = parseFloat(ticker.volume);
 
   return {
     id: symbolToId(symbol),
@@ -113,7 +125,7 @@ export function tickerToAssetMap(ticker: BinanceTicker, rank: number) {
     change24h: parseFloat(ticker.priceChangePercent),
     change7d: 0,
     volume24h: quoteVolume,
-    marketCap: price * volume,
+    marketCap: null as number | null,
     sparkline: [] as number[],
     color: CRYPTO_COLORS[symbol] || '#6366f1',
     icon: symbol,

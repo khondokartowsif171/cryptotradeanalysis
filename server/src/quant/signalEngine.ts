@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { getMongo } from '../db/mongo.js';
+import { syncSignalHistoryAndResolve } from './signalHistory.js';
+import { dispatchSignalAlerts } from '../services/notifications.js';
 
 export interface ClosedCandle {
   openTime: number;
@@ -369,7 +371,7 @@ function binanceHeaders(): Record<string, string> | undefined {
   return apiKey ? { 'X-MBX-APIKEY': apiKey } : undefined;
 }
 
-async function fetchBinanceSpotKlines(pair: string, interval: '15m' | '1h' | '4h', limit = 250): Promise<ClosedCandle[]> {
+export async function fetchBinanceSpotKlines(pair: string, interval: '15m' | '1h' | '4h', limit = 250): Promise<ClosedCandle[]> {
   const headers = binanceHeaders();
   const baseUrl = headers ? 'https://api.binance.com' : 'https://data-api.binance.vision';
   const url = `${baseUrl}/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${interval}&limit=${limit}`;
@@ -653,7 +655,22 @@ export async function syncAllQuantSignalsToMongo(): Promise<{ signalsSynced: num
       newsSynced++;
     }
 
-    return { signalsSynced, newsSynced, alertsLogged };
+    let historyOpened = 0;
+    let historyResolved = 0;
+    let notificationsSent = 0;
+    try {
+      const { openedSignals, resolvedSignals } = await syncSignalHistoryAndResolve(db, allSignals);
+      historyOpened = openedSignals.length;
+      historyResolved = resolvedSignals.length;
+      if (historyOpened > 0 || historyResolved > 0) {
+        const dispatchOutcome = await dispatchSignalAlerts(openedSignals, resolvedSignals);
+        notificationsSent = dispatchOutcome.sent;
+      }
+    } catch (err: any) {
+      console.error('Signal history / alert dispatch warning:', err?.message || err);
+    }
+
+    return { signalsSynced, newsSynced, alertsLogged, historyOpened, historyResolved, notificationsSent };
   })();
 
   try {

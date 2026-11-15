@@ -7,8 +7,8 @@ export function effectiveTier(user: { tier?: string; tier_expires_at?: string | 
 }
 export const PLANS = [
   { id: 'free', name: 'Free Explorer', priceUsd: 0, badge: 'FREE', features: ['Live market tickers and public charts', 'Market movers and crypto news', 'Watchlist: up to 5 coins'] },
-  { id: 'pro', name: 'Pro Trader', priceUsd: 19, yearlyPriceUsd: 149, period: 'monthly', badge: 'PRO', features: ['Premium signal feed when published', 'Expanded watchlist (up to 1,000 coins)', 'Account-synced portfolio tracker'], plannedFeatures: ['Staking multiplier and priority webhook streams'] },
-  { id: 'vip', name: 'VIP Whale / Quant', priceUsd: 49, yearlyPriceUsd: 399, period: 'monthly', badge: 'VIP', features: ['All Pro features', 'Read-only client API keys', 'API access to your own watchlist, portfolio and premium signals'], plannedFeatures: ['Telegram push alerts, whale radar and strategy desk'] },
+  { id: 'pro', name: 'Pro Trader', priceUsd: 19, yearlyPriceUsd: 149, period: 'monthly', badge: 'PRO', features: ['Live closed-candle signal feed', 'Audited Hit/Miss signal history ledger', 'Priority webhook streams (HMAC-signed)', 'Expanded watchlist (up to 1,000 coins)', 'Account-synced portfolio tracker'], plannedFeatures: ['Staking multiplier'] },
+  { id: 'vip', name: 'VIP Whale / Quant', priceUsd: 49, yearlyPriceUsd: 399, period: 'monthly', badge: 'VIP', features: ['All Pro features', 'Telegram push alerts (real-time signals & TP/SL hits)', 'Read-only client API keys', 'API access to your own watchlist, portfolio and premium signals'], plannedFeatures: ['Whale radar and strategy desk'] },
 ] as const;
 
 export type PaymentMethod = {

@@ -1,0 +1,40 @@
+{
+  "version": "0.1.0",
+  "description": "Pre-transaction ERC-20 risk insights, verified treasury checks, and live market track-record alerts powered by Aura CryptoX.",
+  "proposedName": "Aura CryptoX Guard & Signals",
+  "manifestVersion": "0.1",
+  "platformVersion": "8.1.0",
+  "source": {
+    "location": {
+      "npm": {
+        "filePath": "dist/bundle.js",
+        "iconPath": "images/icon.svg",
+        "packageName": "@auracryptox/metamask-snap",
+        "registry": "https://registry.npmjs.org/"
+      }
+    },
+    "shasum": "RUN_MM_SNAP_MANIFEST_FIX_AFTER_BUILD"
+  },
+  "initialPermissions": {
+    "endowment:transaction-insight": {
+      "allowTransactionOrigin": true
+    },
+    "endowment:network-access": {},
+    "endowment:rpc": {
+      "dapps": true,
+      "snaps": false
+    },
+    "endowment:cronjob": {
+      "jobs": [
+        {
+          "expression": "*/15 * * * *",
+          "request": {
+            "method": "checkTrackRecord"
+          }
+        }
+      ]
+    },
+    "snap_notify": {},
+    "snap_manageState": {}
+  }
+}

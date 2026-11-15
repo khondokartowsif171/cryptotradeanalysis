@@ -11,6 +11,10 @@ export const database: Database = {
   },
 };
 export async function ensureBillingSchema() {
-  const sql = readFileSync(new URL('../../migrations/002_verified_billing.sql', import.meta.url), 'utf8');
-  await database.transaction(async query => { await query(sql); });
+  const billingSql = readFileSync(new URL('../../migrations/002_verified_billing.sql', import.meta.url), 'utf8');
+  const notificationsSql = readFileSync(new URL('../../migrations/003_notifications.sql', import.meta.url), 'utf8');
+  await database.transaction(async query => {
+    await query(billingSql);
+    await query(notificationsSql);
+  });
 }

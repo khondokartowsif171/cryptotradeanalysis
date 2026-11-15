@@ -1,0 +1,21 @@
+{
+  "name": "@auracryptox/metamask-snap",
+  "version": "0.1.0",
+  "description": "Aura CryptoX MetaMask Snap for pre-transaction approval risk checks and live closed-candle market bias insights.",
+  "main": "dist/bundle.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "mm-snap build",
+    "manifest": "mm-snap manifest --fix",
+    "serve": "mm-snap serve"
+  },
+  "dependencies": {
+    "@metamask/snaps-sdk": "^6.1.0"
+  },
+  "devDependencies": {
+    "@metamask/snaps-cli": "^5.1.0",
+    "typescript": "^5.5.3"
+  },
+  "license": "MIT"
+}

@@ -41,6 +41,65 @@ export interface PremiumSignal {
   reasons?: string[]; assetClass?: string; closedCandleTime?: string; atr?: number | null;
   ema9?: number | null; ema21?: number | null; ema50?: number | null; ema200?: number | null; macdHistogram?: number | null; source?: string;
 }
+export interface SignalHistoryItem {
+  signalKey: string;
+  pair: string;
+  symbol: string;
+  assetClass: 'CRYPTO' | 'FOREX_COMMODITY';
+  type: 'BUY' | 'SELL';
+  entry: number;
+  takeProfit: number;
+  stopLoss: number;
+  confidence: number;
+  riskRewardRatio: string;
+  timeframe: string;
+  source: string;
+  closedCandleTime: string;
+  openedAt: string;
+  status: 'OPEN' | 'TP_HIT' | 'SL_HIT' | 'EXPIRED';
+  resolvedAt: string | null;
+  exitPrice: number | null;
+  resolutionReason: string | null;
+  pnlPct: number | null;
+  rMultiple: number | null;
+}
+export interface SignalTrackRecordSummary {
+  totalTracked: number;
+  openCount: number;
+  resolvedCount: number;
+  tpHits: number;
+  slHits: number;
+  expiredCount: number;
+  decidedCount: number;
+  winRatePct: number | null;
+  netRMultiple: number;
+  avgRMultiple: number | null;
+  since: string | null;
+}
+export interface NotificationSettings {
+  telegramEnabled: boolean;
+  telegramChatId: string;
+  webhookEnabled: boolean;
+  webhookUrl: string;
+  hasWebhookSecret: boolean;
+  webhookSecretPreview: string | null;
+  minConfidence: number;
+  assetClasses: ('CRYPTO' | 'FOREX_COMMODITY')[];
+  notifyNewSignals: boolean;
+  notifyResolutions: boolean;
+  updatedAt: string | null;
+}
+export interface NotificationDeliveryItem {
+  id: string;
+  channel: 'telegram' | 'webhook';
+  event_key: string;
+  signal_pair: string;
+  signal_type: string;
+  status: 'sent' | 'failed' | 'skipped';
+  http_status: number | null;
+  error_message: string | null;
+  created_at: string;
+}
 export interface AdminUserRow {
   id: string; email: string; wallet_address: string | null; created_at: string;
   tier: string; tier_expires_at: string | null; watchlist_count: number;
@@ -210,8 +269,64 @@ export const api = {
     get: () => request<{ news: any[]; _stale?: boolean; _fallback?: boolean; _cached?: boolean }>('/news'),
   },
 
+  markets: {
+    caps: () =>
+      request<{
+        caps: Record<string, number>;
+        updatedAt: string | null;
+        cached?: boolean;
+        stale?: boolean;
+        unavailable?: boolean;
+      }>('/markets/caps'),
+  },
+
   signals: {
     get: () => request<{ signals: PremiumSignal[]; source?: string }>('/signals'),
+    trackRecord: () =>
+      request<{ summary: SignalTrackRecordSummary | null; fetchedAt?: string }>('/signals/track-record'),
+    history: (limit = 50) =>
+      request<{ summary: SignalTrackRecordSummary | null; history: SignalHistoryItem[]; count: number }>(
+        `/signals/history?limit=${encodeURIComponent(String(limit))}`
+      ),
+  },
+
+  notifications: {
+    getSettings: () =>
+      request<{
+        settings: NotificationSettings;
+        tier: string;
+        telegramBotConfigured: boolean;
+        botUsername: string | null;
+      }>('/notifications/settings'),
+    saveSettings: (payload: {
+      telegramEnabled?: boolean;
+      telegramChatId?: string | null;
+      webhookEnabled?: boolean;
+      webhookUrl?: string | null;
+      webhookSecret?: string | null;
+      regenerateWebhookSecret?: boolean;
+      minConfidence?: number;
+      assetClasses?: ('CRYPTO' | 'FOREX_COMMODITY')[];
+      notifyNewSignals?: boolean;
+      notifyResolutions?: boolean;
+    }) =>
+      request<{
+        settings: NotificationSettings;
+        generatedWebhookSecret?: string;
+        tier: string;
+        telegramBotConfigured: boolean;
+        botUsername: string | null;
+      }>('/notifications/settings', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }),
+    sendTest: (channel: 'telegram' | 'webhook') =>
+      request<{ ok: boolean; channel: string; httpStatus: number | null; error: string | null; deliveredAt: string }>(
+        '/notifications/test',
+        { method: 'POST', body: JSON.stringify({ channel }) },
+        12000
+      ),
+    deliveries: () => request<{ deliveries: NotificationDeliveryItem[] }>('/notifications/deliveries'),
   },
 
   platformSummary: () =>
